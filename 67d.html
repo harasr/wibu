@@ -1,0 +1,8160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1,viewport-fit=cover"
+/>
+
+<meta
+  name="theme-color"
+  content="#91b8ca"
+/>
+
+<meta
+  name="description"
+  content="BLOOM — cinematic procedural 3D rose experience"
+/>
+
+<title>BLOOM — A Rose Awakens</title>
+
+<style>
+  :root {
+    --bg: #0b1011;
+    --paper: #f5eee8;
+    --muted: rgba(255,255,255,.42);
+    --line: rgba(255,255,255,.14);
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    background: var(--bg);
+  }
+
+  body {
+    overflow-x: hidden;
+    color: var(--paper);
+
+    font-family:
+      "Iowan Old Style",
+      "Palatino Linotype",
+      Palatino,
+      Georgia,
+      serif;
+
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body.loading {
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  button {
+    font: inherit;
+  }
+
+  #stage {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    touch-action: none;
+  }
+
+  #scroll-space {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 600vh;
+    pointer-events: none;
+  }
+
+  /* =========================================================
+     LOADER
+  ========================================================= */
+
+  #loader {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+
+    display: grid;
+    place-items: center;
+
+    background:
+      radial-gradient(
+        circle at 50% 58%,
+        rgba(128,76,84,.10),
+        transparent 35%
+      ),
+      #101718;
+
+    transition:
+      opacity 1s var(--ease),
+      visibility 1s;
+  }
+
+  #loader.done {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .loader-inner {
+    width: min(390px,76vw);
+    text-align: center;
+  }
+
+  .loader-title {
+    font-size: clamp(42px,9vw,76px);
+    line-height: .92;
+    font-weight: 400;
+    letter-spacing: .28em;
+    margin-left: .28em;
+  }
+
+  .loader-track {
+    width: 100%;
+    height: 1px;
+    margin-top: 30px;
+    overflow: hidden;
+    background: rgba(255,255,255,.11);
+  }
+
+  .loader-bar {
+    width: 0;
+    height: 100%;
+
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255,255,255,.14),
+        rgba(255,220,220,.76),
+        rgba(255,255,255,.16)
+      );
+  }
+
+  .loader-label {
+    margin-top: 15px;
+    color: var(--muted);
+
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
+
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: .23em;
+    text-transform: uppercase;
+  }
+
+  .loader-percent {
+    margin-top: 10px;
+    color: rgba(255,255,255,.24);
+
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
+
+    font-size: 9px;
+    letter-spacing: .16em;
+  }
+
+  /* =========================================================
+     UI
+  ========================================================= */
+
+  #ui {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    pointer-events: none;
+  }
+
+  .brand {
+    position: absolute;
+    top: max(23px,env(safe-area-inset-top));
+    left: max(24px,env(safe-area-inset-left));
+
+    color: rgba(255,255,255,.84);
+
+    font-size: 14px;
+    letter-spacing: .34em;
+    margin-left: .34em;
+
+    user-select: none;
+
+    text-shadow:
+      0 2px 18px rgba(0,0,0,.15);
+  }
+
+  .progress {
+    position: absolute;
+    top: max(23px,env(safe-area-inset-top));
+    right: max(24px,env(safe-area-inset-right));
+
+    color: rgba(255,255,255,.42);
+
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
+
+    font-size: 9px;
+    letter-spacing: .18em;
+
+    user-select: none;
+  }
+
+  .hint {
+    position: absolute;
+    left: 50%;
+
+    bottom:
+      calc(
+        max(24px,env(safe-area-inset-bottom)) + 48px
+      );
+
+    transform: translateX(-50%);
+
+    color: rgba(255,255,255,.31);
+
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
+
+    font-size: 8px;
+    letter-spacing: .23em;
+
+    text-transform: uppercase;
+    white-space: nowrap;
+
+    transition:
+      opacity .8s var(--ease),
+      transform .8s var(--ease),
+      color .8s var(--ease);
+  }
+
+  .hint.hidden {
+    opacity: 0;
+  }
+
+  .hint.free {
+    color: rgba(255,236,226,.62);
+
+    transform:
+      translateX(-50%)
+      translateY(-4px);
+  }
+
+  .replay {
+    position: absolute;
+    left: 50%;
+    bottom: max(24px,env(safe-area-inset-bottom));
+
+    transform: translateX(-50%);
+
+    pointer-events: auto;
+
+    appearance: none;
+
+    border:
+      1px solid var(--line);
+
+    border-radius: 999px;
+
+    background:
+      rgba(10,14,14,.16);
+
+    color:
+      rgba(255,255,255,.72);
+
+    padding:
+      9px 16px;
+
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
+
+    font-size: 9px;
+    letter-spacing: .19em;
+    line-height: 1;
+
+    text-transform: uppercase;
+
+    backdrop-filter:
+      blur(16px);
+
+    -webkit-backdrop-filter:
+      blur(16px);
+
+    cursor: pointer;
+
+    transition:
+      background .3s ease,
+      border-color .3s ease,
+      transform .3s ease,
+      color .3s ease;
+  }
+
+  .replay:hover {
+    background:
+      rgba(255,255,255,.055);
+
+    border-color:
+      rgba(255,255,255,.28);
+
+    color:
+      rgba(255,255,255,.95);
+
+    transform:
+      translateX(-50%)
+      translateY(-2px);
+  }
+
+  .replay:focus-visible {
+    outline:
+      1px solid
+      rgba(255,255,255,.55);
+
+    outline-offset: 4px;
+  }
+
+  /* =========================================================
+     FALLBACK
+  ========================================================= */
+
+  #fallback {
+    position: fixed;
+    inset: 0;
+
+    z-index: 500;
+
+    display: none;
+    place-items: center;
+
+    padding: 32px;
+
+    background: #101819;
+
+    text-align: center;
+  }
+
+  #fallback.show {
+    display: grid;
+  }
+
+  .fallback-title {
+    margin: 0 0 15px;
+    font-size: 48px;
+    font-weight: 400;
+  }
+
+  .fallback-copy {
+    max-width: 560px;
+    margin: 0 auto;
+
+    color: rgba(255,255,255,.50);
+
+    font-family:
+      Inter,
+      ui-sans-serif,
+      system-ui,
+      sans-serif;
+
+    font-size: 14px;
+    line-height: 1.8;
+  }
+
+  @media (max-width:700px) {
+    .brand {
+      font-size: 13px;
+    }
+
+    .progress {
+      font-size: 8px;
+    }
+
+    .hint {
+      font-size: 7px;
+    }
+  }
+
+  @media (prefers-reduced-motion:reduce) {
+    #scroll-space {
+      height: 170vh;
+    }
+  }
+</style>
+</head>
+
+<body class="loading">
+
+<canvas id="stage"></canvas>
+
+<div id="scroll-space"></div>
+
+<div id="loader">
+  <div class="loader-inner">
+
+    <div class="loader-title">
+      BLOOM
+    </div>
+
+    <div class="loader-track">
+      <div
+        id="loader-bar"
+        class="loader-bar"
+      ></div>
+    </div>
+
+    <div
+      id="loader-label"
+      class="loader-label"
+    >
+      preparing the garden
+    </div>
+
+    <div
+      id="loader-percent"
+      class="loader-percent"
+    >
+      0%
+    </div>
+
+  </div>
+</div>
+
+<div id="ui">
+
+  <div class="brand">
+    BLOOM
+  </div>
+
+  <div
+    id="progress"
+    class="progress"
+  >
+    00%
+  </div>
+
+  <div
+    id="hint"
+    class="hint"
+  >
+    scroll into the garden
+  </div>
+
+  <button
+    id="replay"
+    class="replay"
+    type="button"
+  >
+    replay
+  </button>
+
+</div>
+
+<div id="fallback">
+
+  <div>
+
+    <h1 class="fallback-title">
+      BLOOM
+    </h1>
+
+    <p
+      id="fallback-copy"
+      class="fallback-copy"
+    >
+      Không thể khởi tạo trải nghiệm 3D.
+    </p>
+
+  </div>
+
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+
+import * as THREE from "three";
+
+import {
+  EffectComposer
+} from "three/addons/postprocessing/EffectComposer.js";
+
+import {
+  RenderPass
+} from "three/addons/postprocessing/RenderPass.js";
+
+import {
+  UnrealBloomPass
+} from "three/addons/postprocessing/UnrealBloomPass.js";
+
+import {
+  BokehPass
+} from "three/addons/postprocessing/BokehPass.js";
+
+import {
+  OutputPass
+} from "three/addons/postprocessing/OutputPass.js";
+
+
+/* =========================================================
+   DOM
+========================================================= */
+
+const DOM = {
+
+  canvas:
+    document.getElementById("stage"),
+
+  loader:
+    document.getElementById("loader"),
+
+  loaderBar:
+    document.getElementById("loader-bar"),
+
+  loaderLabel:
+    document.getElementById("loader-label"),
+
+  loaderPercent:
+    document.getElementById("loader-percent"),
+
+  progress:
+    document.getElementById("progress"),
+
+  hint:
+    document.getElementById("hint"),
+
+  replay:
+    document.getElementById("replay"),
+
+  fallback:
+    document.getElementById("fallback"),
+
+  fallbackCopy:
+    document.getElementById("fallback-copy")
+};
+
+
+/* =========================================================
+   LOADER
+========================================================= */
+
+const LOADER = {
+
+  value: 0,
+
+  target: 0,
+
+  label:
+    "preparing the garden",
+
+  active: true
+};
+
+
+function clamp01(value) {
+
+  return Math.max(
+    0,
+    Math.min(
+      1,
+      value
+    )
+  );
+}
+
+
+function damp(
+  current,
+  target,
+  smoothing,
+  dt
+) {
+
+  return THREE.MathUtils.damp(
+    current,
+    target,
+    smoothing,
+    dt
+  );
+}
+
+
+function setLoading(
+  value,
+  label
+) {
+
+  LOADER.target =
+    clamp01(value) *
+    100;
+
+  if (label) {
+    LOADER.label =
+      label;
+  }
+}
+
+
+function loaderLoop() {
+
+  LOADER.value =
+    damp(
+      LOADER.value,
+      LOADER.target,
+      7,
+      .016
+    );
+
+
+  const percent =
+    Math.round(
+      LOADER.value
+    );
+
+
+  DOM.loaderBar.style.width =
+    `${percent}%`;
+
+
+  DOM.loaderPercent.textContent =
+    `${percent}%`;
+
+
+  DOM.loaderLabel.textContent =
+    LOADER.label;
+
+
+  if (LOADER.active) {
+    requestAnimationFrame(
+      loaderLoop
+    );
+  }
+}
+
+
+loaderLoop();
+
+
+function finishLoading() {
+
+  setLoading(
+    1,
+    "the garden is awake"
+  );
+
+
+  setTimeout(
+    () => {
+
+      LOADER.active =
+        false;
+
+      DOM.loader.classList.add(
+        "done"
+      );
+
+      document.body.classList.remove(
+        "loading"
+      );
+
+    },
+    420
+  );
+}
+
+
+function fail(message) {
+
+  console.error(
+    "[BLOOM]",
+    message
+  );
+
+
+  DOM.fallbackCopy.textContent =
+    message;
+
+
+  DOM.fallback.classList.add(
+    "show"
+  );
+
+
+  DOM.loader.classList.add(
+    "done"
+  );
+
+
+  document.body.classList.remove(
+    "loading"
+  );
+}
+
+
+/* =========================================================
+   WEBGL
+========================================================= */
+
+function hasWebGL() {
+
+  try {
+
+    const test =
+      document.createElement(
+        "canvas"
+      );
+
+
+    return Boolean(
+      test.getContext("webgl2") ||
+      test.getContext("webgl")
+    );
+
+  } catch {
+
+    return false;
+  }
+}
+
+
+if (!hasWebGL()) {
+
+  fail(
+    "WebGL hiện không khả dụng trên trình duyệt hoặc GPU."
+  );
+
+  throw new Error(
+    "WEBGL_UNAVAILABLE"
+  );
+}
+
+
+/* =========================================================
+   QUALITY
+========================================================= */
+
+const mobile =
+  /Android|iPhone|iPad|iPod/i.test(
+    navigator.userAgent
+  );
+
+
+const cores =
+  navigator.hardwareConcurrency ||
+  4;
+
+
+let QUALITY;
+
+
+if (
+  mobile &&
+  cores <= 4
+) {
+
+  QUALITY = {
+
+    tier:
+      "low",
+
+    dpr:
+      1,
+
+    pollen:
+      180,
+
+    dust:
+      60,
+
+    grass:
+      260,
+
+    terrain:
+      32,
+
+    shadows:
+      512,
+
+    bloomResolution:
+      .65,
+
+    bloomStrength:
+      .30,
+
+    petalSegmentsU:
+      8,
+
+    petalSegmentsV:
+      12,
+
+    bokeh:
+      false
+  };
+
+} else if (
+  mobile ||
+  cores <= 4
+) {
+
+  QUALITY = {
+
+    tier:
+      "medium",
+
+    dpr:
+      Math.min(
+        window.devicePixelRatio || 1,
+        1.35
+      ),
+
+    pollen:
+      430,
+
+    dust:
+      130,
+
+    grass:
+      540,
+
+    terrain:
+      48,
+
+    shadows:
+      1024,
+
+    bloomResolution:
+      .78,
+
+    bloomStrength:
+      .34,
+
+    petalSegmentsU:
+      11,
+
+    petalSegmentsV:
+      17,
+
+    bokeh:
+      true
+  };
+
+} else {
+
+  QUALITY = {
+
+    tier:
+      "high",
+
+    dpr:
+      Math.min(
+        window.devicePixelRatio || 1,
+        1.85
+      ),
+
+    pollen:
+      850,
+
+    dust:
+      250,
+
+    grass:
+      1100,
+
+    terrain:
+      72,
+
+    shadows:
+      1536,
+
+    bloomResolution:
+      1,
+
+    bloomStrength:
+      .38,
+
+    petalSegmentsU:
+      15,
+
+    petalSegmentsV:
+      22,
+
+    bokeh:
+      true
+  };
+}
+
+
+const REDUCED_MOTION =
+  window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches;
+
+
+/* =========================================================
+   MATH
+========================================================= */
+
+function smoothstep(value) {
+
+  const t =
+    clamp01(
+      value
+    );
+
+
+  return (
+    t *
+    t *
+    t *
+    (
+      t *
+      (
+        t * 6 -
+        15
+      ) +
+      10
+    )
+  );
+}
+
+
+function smooth(value) {
+  return smoothstep(
+    value
+  );
+}
+
+
+function easeInOut(value) {
+
+  const t =
+    clamp01(
+      value
+    );
+
+
+  return t < .5
+
+    ? 4 *
+      t *
+      t *
+      t
+
+    : 1 -
+      Math.pow(
+        -2 * t + 2,
+        3
+      ) / 2;
+}
+
+
+function easeOut(value) {
+
+  const t =
+    clamp01(
+      value
+    );
+
+
+  return (
+    1 -
+    Math.pow(
+      1 - t,
+      5
+    )
+  );
+}
+
+
+function range(
+  value,
+  start,
+  end
+) {
+
+  if (
+    start === end
+  ) {
+
+    return value >= end
+      ? 1
+      : 0;
+  }
+
+
+  return smoothstep(
+    (
+      value -
+      start
+    ) /
+    (
+      end -
+      start
+    )
+  );
+}
+
+
+/* =========================================================
+   NOISE
+========================================================= */
+
+function hash(
+  x,
+  y
+) {
+
+  const n =
+    Math.sin(
+      x * 127.1 +
+      y * 311.7
+    ) *
+    43758.5453123;
+
+
+  return (
+    n -
+    Math.floor(n)
+  );
+}
+
+
+function noise1D(x) {
+
+  const integer =
+    Math.floor(x);
+
+
+  const fraction =
+    x -
+    integer;
+
+
+  const interpolation =
+    fraction *
+    fraction *
+    (
+      3 -
+      2 * fraction
+    );
+
+
+  const a =
+    hash(
+      integer,
+      17.13
+    );
+
+
+  const b =
+    hash(
+      integer + 1,
+      17.13
+    );
+
+
+  return (
+    (
+      a +
+      (
+        b -
+        a
+      ) *
+      interpolation
+    ) *
+    2 -
+    1
+  );
+}
+
+
+function fbm(x) {
+
+  let total =
+    0;
+
+  let amplitude =
+    .5;
+
+  let frequency =
+    1;
+
+
+  for (
+    let i = 0;
+    i < 4;
+    i++
+  ) {
+
+    total +=
+      noise1D(
+        x *
+        frequency
+      ) *
+      amplitude;
+
+
+    frequency *=
+      2;
+
+    amplitude *=
+      .5;
+  }
+
+
+  return total;
+}
+
+
+/* =========================================================
+   ENGINE
+========================================================= */
+
+const ENGINE = {
+
+  renderer:
+    null,
+
+  composer:
+    null,
+
+  renderPass:
+    null,
+
+  bloomPass:
+    null,
+
+  bokehPass:
+    null,
+
+  outputPass:
+    null,
+
+  scene:
+    null,
+
+  camera:
+    null
+};
+
+
+try {
+
+  ENGINE.renderer =
+    new THREE.WebGLRenderer({
+
+      canvas:
+        DOM.canvas,
+
+      antialias:
+        QUALITY.tier !== "low",
+
+      alpha:
+        false,
+
+      depth:
+        true,
+
+      stencil:
+        false,
+
+      powerPreference:
+        "high-performance",
+
+      failIfMajorPerformanceCaveat:
+        false
+    });
+
+
+  ENGINE.renderer.setPixelRatio(
+    QUALITY.dpr
+  );
+
+
+  ENGINE.renderer.setSize(
+    window.innerWidth,
+    window.innerHeight,
+    false
+  );
+
+
+  ENGINE.renderer.outputColorSpace =
+    THREE.SRGBColorSpace;
+
+
+  ENGINE.renderer.toneMapping =
+    THREE.ACESFilmicToneMapping;
+
+
+  /*
+    Cảnh rõ hơn, không cháy.
+  */
+
+  ENGINE.renderer.toneMappingExposure =
+    .92;
+
+
+  ENGINE.renderer.shadowMap.enabled =
+    QUALITY.tier !== "low";
+
+
+  ENGINE.renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
+} catch (error) {
+
+  fail(
+    "Không thể tạo WebGLRenderer: " +
+    error.message
+  );
+
+  throw error;
+}
+
+
+/* =========================================================
+   CONTEXT LOSS
+========================================================= */
+
+DOM.canvas.addEventListener(
+  "webglcontextlost",
+  event => {
+
+    event.preventDefault();
+
+    DOM.loaderLabel.textContent =
+      "recovering the garden";
+
+    DOM.loaderPercent.textContent =
+      "—";
+
+  },
+  false
+);
+
+
+DOM.canvas.addEventListener(
+  "webglcontextrestored",
+  () => {
+    location.reload();
+  },
+  false
+);
+
+
+/* =========================================================
+   SCENE
+========================================================= */
+
+setLoading(
+  .12,
+  "building the garden"
+);
+
+
+ENGINE.scene =
+  new THREE.Scene();
+
+
+ENGINE.scene.fog =
+  new THREE.FogExp2(
+
+    new THREE.Color(
+      "#b7c9c9"
+    ),
+
+    .0075
+  );
+
+
+ENGINE.camera =
+  new THREE.PerspectiveCamera(
+    43,
+    window.innerWidth /
+      window.innerHeight,
+    .05,
+    180
+  );
+
+
+ENGINE.camera.position.set(
+  0,
+  6.8,
+  52
+);
+
+
+/* =========================================================
+   STATE
+   Free look:
+   yaw   = 360° / vô hạn
+   pitch = lên / xuống
+   roll  = Q / E
+========================================================= */
+
+const STATE = {
+
+  time:
+    0,
+
+  progress:
+    0,
+
+  targetProgress:
+    0,
+
+  cameraProgress:
+    0,
+
+  bloomProgress:
+    0,
+
+  windStrength:
+    .15,
+
+  autoPlay:
+    true,
+
+  lastInteraction:
+    performance.now(),
+
+  pointer:
+    new THREE.Vector2(),
+
+  pointerTarget:
+    new THREE.Vector2(),
+
+  orbit:
+    new THREE.Vector2(),
+
+  pointerDown:
+    new THREE.Vector2(),
+
+  mouseDown:
+    false,
+
+  cameraPosition:
+    new THREE.Vector3(),
+
+  cameraLook:
+    new THREE.Vector3(),
+
+  smoothLook:
+    new THREE.Vector3(
+      0,
+      3,
+      0
+    ),
+
+  freeLook:
+    false,
+
+  freeLookAmount:
+    0,
+
+  freeLookYaw:
+    0,
+
+  freeLookPitch:
+    0,
+
+  freeLookRoll:
+    0,
+
+  targetFreeLookYaw:
+    0,
+
+  targetFreeLookPitch:
+    0,
+
+  targetFreeLookRoll:
+    0,
+
+  freeLookCenter:
+    new THREE.Vector3(),
+
+  freeLookPosition:
+    new THREE.Vector3(),
+
+  freeLookTarget:
+    new THREE.Vector3(),
+
+  freeLookDistance:
+    4.25
+};
+
+
+/* =========================================================
+   WORLD
+========================================================= */
+
+const WORLD = {
+
+  sky:
+    null,
+
+  horizon:
+    null,
+
+  sunGlow:
+    null,
+
+  ground:
+    null,
+
+  grass:
+    null,
+
+  cloudGroup:
+    null,
+
+  mistGroup:
+    null,
+
+  rose:
+    null,
+
+  bud:
+    null,
+
+  core:
+    null,
+
+  stemGroup:
+    null,
+
+  stem:
+    null,
+
+  canopyGroup:
+    null,
+
+  keyLight:
+    null,
+
+  fillLight:
+    null,
+
+  rimLight:
+    null,
+
+  ambientLight:
+    null,
+
+  bounceLight:
+    null,
+
+  pollen:
+    null,
+
+  dust:
+    null
+};
+
+
+const ROSE = {
+
+  petals:
+    [],
+
+  leaves:
+    [],
+
+  canopyLeaves:
+    [],
+
+  dew:
+    [],
+
+  sepals:
+    [],
+
+  thorns:
+    [],
+
+  veinLines:
+    []
+};
+
+
+/* =========================================================
+   SKY
+========================================================= */
+
+const SKY = {
+
+  top0:
+    new THREE.Color("#6ea6c4"),
+
+  top1:
+    new THREE.Color("#8dbbd0"),
+
+  top2:
+    new THREE.Color("#b7ced3"),
+
+  top3:
+    new THREE.Color("#e0c2a4"),
+
+  mid0:
+    new THREE.Color("#b3cfd9"),
+
+  mid1:
+    new THREE.Color("#cadcde"),
+
+  mid2:
+    new THREE.Color("#ded0c2"),
+
+  mid3:
+    new THREE.Color("#e9b894"),
+
+  horizon0:
+    new THREE.Color("#d0dfda"),
+
+  horizon1:
+    new THREE.Color("#dbe1d4"),
+
+  horizon2:
+    new THREE.Color("#e7bf9f"),
+
+  horizon3:
+    new THREE.Color("#eca982")
+};
+
+
+WORLD.sky =
+  new THREE.Mesh(
+
+    new THREE.SphereGeometry(
+      120,
+      64,
+      40
+    ),
+
+    new THREE.ShaderMaterial({
+
+      side:
+        THREE.BackSide,
+
+      depthWrite:
+        false,
+
+      uniforms: {
+
+        topColor: {
+          value:
+            SKY.top0.clone()
+        },
+
+        middleColor: {
+          value:
+            SKY.mid0.clone()
+        },
+
+        horizonColor: {
+          value:
+            SKY.horizon0.clone()
+        },
+
+        horizonGlow: {
+          value:
+            .28
+        },
+
+        time: {
+          value:
+            0
+        }
+      },
+
+      vertexShader: `
+
+        varying vec3
+        vWorldPosition;
+
+        void main() {
+
+          vec4 world =
+            modelMatrix *
+            vec4(
+              position,
+              1.0
+            );
+
+          vWorldPosition =
+            world.xyz;
+
+          gl_Position =
+            projectionMatrix *
+            viewMatrix *
+            world;
+        }
+
+      `,
+
+      fragmentShader: `
+
+        uniform vec3
+        topColor;
+
+        uniform vec3
+        middleColor;
+
+        uniform vec3
+        horizonColor;
+
+        uniform float
+        horizonGlow;
+
+        varying vec3
+        vWorldPosition;
+
+        void main() {
+
+          vec3 direction =
+            normalize(
+              vWorldPosition
+            );
+
+          float h =
+            clamp(
+              direction.y *
+              .5 +
+              .5,
+              0.0,
+              1.0
+            );
+
+          vec3 lower =
+            mix(
+              horizonColor,
+              middleColor,
+              smoothstep(
+                0.0,
+                .48,
+                h
+              )
+            );
+
+          vec3 finalColor =
+            mix(
+              lower,
+              topColor,
+              smoothstep(
+                .47,
+                1.0,
+                h
+              )
+            );
+
+          float warm =
+            exp(
+              -pow(
+                (
+                  h -
+                  .08
+                ) /
+                .11,
+                2.0
+              )
+            );
+
+          finalColor +=
+            vec3(
+              1.0,
+              .46,
+              .20
+            ) *
+            warm *
+            horizonGlow *
+            .16;
+
+          gl_FragColor =
+            vec4(
+              finalColor,
+              1.0
+            );
+        }
+
+      `
+    })
+  );
+
+
+WORLD.sky.frustumCulled =
+  false;
+
+
+ENGINE.scene.add(
+  WORLD.sky
+);
+
+
+/* =========================================================
+   SUN
+========================================================= */
+
+function createRadialTexture() {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+
+  canvas.width =
+    256;
+
+  canvas.height =
+    256;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  const gradient =
+    ctx.createRadialGradient(
+      128,
+      128,
+      0,
+      128,
+      128,
+      128
+    );
+
+
+  gradient.addColorStop(
+    0,
+    "rgba(255,249,228,.82)"
+  );
+
+
+  gradient.addColorStop(
+    .32,
+    "rgba(255,222,175,.16)"
+  );
+
+
+  gradient.addColorStop(
+    .72,
+    "rgba(255,220,190,.025)"
+  );
+
+
+  gradient.addColorStop(
+    1,
+    "rgba(255,255,255,0)"
+  );
+
+
+  ctx.fillStyle =
+    gradient;
+
+
+  ctx.fillRect(
+    0,
+    0,
+    256,
+    256
+  );
+
+
+  return new THREE.CanvasTexture(
+    canvas
+  );
+}
+
+
+WORLD.sunGlow =
+  new THREE.Sprite(
+
+    new THREE.SpriteMaterial({
+
+      map:
+        createRadialTexture(),
+
+      color:
+        "#ffe8c5",
+
+      transparent:
+        true,
+
+      opacity:
+        .075,
+
+      depthWrite:
+        false,
+
+      blending:
+        THREE.AdditiveBlending
+    })
+  );
+
+
+WORLD.sunGlow.position.set(
+  -22,
+  21,
+  -48
+);
+
+
+WORLD.sunGlow.scale.set(
+  25,
+  25,
+  1
+);
+
+
+ENGINE.scene.add(
+  WORLD.sunGlow
+);
+
+
+/* =========================================================
+   LIGHTING
+========================================================= */
+
+WORLD.ambientLight =
+  new THREE.HemisphereLight(
+    "#ebf5f9",
+    "#506046",
+    .90
+  );
+
+
+ENGINE.scene.add(
+  WORLD.ambientLight
+);
+
+
+WORLD.keyLight =
+  new THREE.DirectionalLight(
+    "#fff0d1",
+    1.85
+  );
+
+
+WORLD.keyLight.position.set(
+  -10,
+  19,
+  10
+);
+
+
+WORLD.keyLight.castShadow =
+  QUALITY.tier !== "low";
+
+
+WORLD.keyLight.shadow.mapSize.set(
+  QUALITY.shadows,
+  QUALITY.shadows
+);
+
+
+WORLD.keyLight.shadow.camera.near =
+  .1;
+
+WORLD.keyLight.shadow.camera.far =
+  75;
+
+WORLD.keyLight.shadow.camera.left =
+  -30;
+
+WORLD.keyLight.shadow.camera.right =
+  30;
+
+WORLD.keyLight.shadow.camera.top =
+  30;
+
+WORLD.keyLight.shadow.camera.bottom =
+  -30;
+
+WORLD.keyLight.shadow.bias =
+  -.00012;
+
+WORLD.keyLight.shadow.normalBias =
+  .028;
+
+
+ENGINE.scene.add(
+  WORLD.keyLight
+);
+
+
+WORLD.fillLight =
+  new THREE.DirectionalLight(
+    "#c4dbed",
+    .42
+  );
+
+
+WORLD.fillLight.position.set(
+  13,
+  11,
+  -13
+);
+
+
+ENGINE.scene.add(
+  WORLD.fillLight
+);
+
+
+WORLD.rimLight =
+  new THREE.PointLight(
+    "#ffb59f",
+    5.5,
+    42,
+    2
+  );
+
+
+WORLD.rimLight.position.set(
+  4,
+  7,
+  8
+);
+
+
+ENGINE.scene.add(
+  WORLD.rimLight
+);
+
+
+WORLD.bounceLight =
+  new THREE.PointLight(
+    "#843f4d",
+    .85,
+    22,
+    2
+  );
+
+
+WORLD.bounceLight.position.set(
+  0,
+  .4,
+  1.3
+);
+
+
+ENGINE.scene.add(
+  WORLD.bounceLight
+);
+
+
+/* =========================================================
+   GROUND
+========================================================= */
+
+const groundGeometry =
+  new THREE.PlaneGeometry(
+    120,
+    120,
+    QUALITY.terrain,
+    QUALITY.terrain
+  );
+
+
+const groundPositions =
+  groundGeometry.attributes.position;
+
+
+for (
+  let i = 0;
+  i < groundPositions.count;
+  i++
+) {
+
+  const x =
+    groundPositions.getX(i);
+
+  const y =
+    groundPositions.getY(i);
+
+
+  groundPositions.setZ(
+    i,
+
+    -.16 +
+
+    Math.sin(
+      x * .12
+    ) * .06 +
+
+    Math.cos(
+      (x + y) * .18
+    ) * .035 +
+
+    Math.sin(
+      x * 1.35
+    ) *
+    Math.cos(
+      y * 1.17
+    ) *
+    .012
+  );
+}
+
+
+groundGeometry.computeVertexNormals();
+
+
+WORLD.ground =
+  new THREE.Mesh(
+
+    groundGeometry,
+
+    new THREE.MeshStandardMaterial({
+
+      color:
+        "#273226",
+
+      roughness:
+        .975,
+
+      metalness:
+        0
+    })
+  );
+
+
+WORLD.ground.rotation.x =
+  -Math.PI / 2;
+
+
+WORLD.ground.receiveShadow =
+  true;
+
+
+ENGINE.scene.add(
+  WORLD.ground
+);
+
+
+/* =========================================================
+   GRASS
+========================================================= */
+
+function createGrassTexture() {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+
+  canvas.width =
+    64;
+
+  canvas.height =
+    64;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  const gradient =
+    ctx.createLinearGradient(
+      0,
+      64,
+      0,
+      0
+    );
+
+
+  gradient.addColorStop(
+    0,
+    "rgba(52,73,39,.80)"
+  );
+
+
+  gradient.addColorStop(
+    .62,
+    "rgba(112,132,79,.40)"
+  );
+
+
+  gradient.addColorStop(
+    1,
+    "rgba(150,160,105,0)"
+  );
+
+
+  ctx.fillStyle =
+    gradient;
+
+
+  ctx.beginPath();
+
+
+  ctx.moveTo(
+    31,
+    64
+  );
+
+
+  ctx.quadraticCurveTo(
+    20,
+    32,
+    33,
+    0
+  );
+
+
+  ctx.quadraticCurveTo(
+    42,
+    34,
+    34,
+    64
+  );
+
+
+  ctx.fill();
+
+
+  return new THREE.CanvasTexture(
+    canvas
+  );
+}
+
+
+const GRASS_TEXTURE =
+  createGrassTexture();
+
+
+WORLD.grass =
+  new THREE.Group();
+
+
+for (
+  let i = 0;
+  i < QUALITY.grass;
+  i++
+) {
+
+  const grass =
+    new THREE.Sprite(
+
+      new THREE.SpriteMaterial({
+
+        map:
+          GRASS_TEXTURE,
+
+        color:
+          i % 3 === 0
+            ? "#718050"
+            : "#7f8b5b",
+
+        transparent:
+          true,
+
+        alphaTest:
+          .06,
+
+        depthWrite:
+          true
+      })
+    );
+
+
+  const angle =
+    hash(i,8) *
+    Math.PI *
+    2;
+
+
+  const radius =
+    Math.sqrt(
+      hash(i,12)
+    ) *
+    34;
+
+
+  grass.position.set(
+
+    Math.cos(angle) *
+    radius,
+
+    .01,
+
+    Math.sin(angle) *
+    radius
+  );
+
+
+  const size =
+    .28 +
+    hash(i,21) *
+    .72;
+
+
+  grass.scale.set(
+
+    size *
+    (
+      .42 +
+      hash(i,33)
+    ),
+
+    size *
+    2.45,
+
+    1
+  );
+
+
+  grass.rotation.z =
+    hash(i,41) *
+    Math.PI;
+
+
+  grass.userData = {
+
+    baseRotation:
+      grass.rotation.z,
+
+    phase:
+      hash(i,49) *
+      Math.PI *
+      2,
+
+    influence:
+      .12 +
+      hash(i,52) *
+      .38
+  };
+
+
+  WORLD.grass.add(
+    grass
+  );
+}
+
+
+ENGINE.scene.add(
+  WORLD.grass
+);
+
+
+/* =========================================================
+   PARTICLES
+========================================================= */
+
+function createParticleTexture() {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+
+  canvas.width =
+    32;
+
+  canvas.height =
+    32;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  const gradient =
+    ctx.createRadialGradient(
+      16,
+      16,
+      0,
+      16,
+      16,
+      16
+    );
+
+
+  gradient.addColorStop(
+    0,
+    "rgba(255,255,255,1)"
+  );
+
+
+  gradient.addColorStop(
+    .35,
+    "rgba(255,255,255,.48)"
+  );
+
+
+  gradient.addColorStop(
+    1,
+    "rgba(255,255,255,0)"
+  );
+
+
+  ctx.fillStyle =
+    gradient;
+
+
+  ctx.fillRect(
+    0,
+    0,
+    32,
+    32
+  );
+
+
+  return new THREE.CanvasTexture(
+    canvas
+  );
+}
+
+
+const PARTICLE_TEXTURE =
+  createParticleTexture();
+
+
+function createParticleSystem(
+  count,
+  type
+) {
+
+  const positions =
+    new Float32Array(
+      count * 3
+    );
+
+
+  const velocities =
+    new Float32Array(
+      count * 3
+    );
+
+
+  const phases =
+    new Float32Array(
+      count
+    );
+
+
+  for (
+    let i = 0;
+    i < count;
+    i++
+  ) {
+
+    const i3 =
+      i * 3;
+
+
+    positions[i3] =
+      (
+        hash(i,1) *
+        2 -
+        1
+      ) * 18;
+
+
+    positions[i3 + 1] =
+      .4 +
+      hash(i,2) * 14;
+
+
+    positions[i3 + 2] =
+      (
+        hash(i,3) *
+        2 -
+        1
+      ) * 32;
+
+
+    velocities[i3] =
+      (
+        hash(i,4) *
+        2 -
+        1
+      ) * .009;
+
+
+    velocities[i3 + 1] =
+      (
+        hash(i,5) *
+        2 -
+        1
+      ) * .004;
+
+
+    velocities[i3 + 2] =
+      (
+        hash(i,6) *
+        2 -
+        1
+      ) * .009;
+
+
+    phases[i] =
+      hash(i,7) *
+      Math.PI *
+      2;
+  }
+
+
+  const geometry =
+    new THREE.BufferGeometry();
+
+
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      positions,
+      3
+    )
+  );
+
+
+  const material =
+    new THREE.PointsMaterial({
+
+      map:
+        PARTICLE_TEXTURE,
+
+      size:
+        type === "dust"
+          ? .075
+          : .12,
+
+      color:
+        type === "dust"
+          ? "#d6d3c9"
+          : "#f0dcc9",
+
+      transparent:
+        true,
+
+      opacity:
+        type === "dust"
+          ? .18
+          : .50,
+
+      depthWrite:
+        false,
+
+      blending:
+        THREE.AdditiveBlending,
+
+      sizeAttenuation:
+        true
+    });
+
+
+  const points =
+    new THREE.Points(
+      geometry,
+      material
+    );
+
+
+  ENGINE.scene.add(
+    points
+  );
+
+
+  return {
+
+    points,
+
+    positions,
+
+    velocities,
+
+    phases,
+
+    count,
+
+    type,
+
+    material
+  };
+}
+
+
+WORLD.pollen =
+  createParticleSystem(
+    QUALITY.pollen,
+    "pollen"
+  );
+
+
+WORLD.dust =
+  createParticleSystem(
+    QUALITY.dust,
+    "dust"
+  );
+
+
+/* =========================================================
+   STEM
+========================================================= */
+
+WORLD.stemGroup =
+  new THREE.Group();
+
+
+const stemCurve =
+  new THREE.CatmullRomCurve3([
+
+    new THREE.Vector3(
+      0,0,0
+    ),
+
+    new THREE.Vector3(
+      .02,.55,.01
+    ),
+
+    new THREE.Vector3(
+      -.03,1.35,0
+    ),
+
+    new THREE.Vector3(
+      .02,2.24,0
+    ),
+
+    new THREE.Vector3(
+      0,3.08,0
+    )
+  ]);
+
+
+WORLD.stem =
+  new THREE.Mesh(
+
+    new THREE.TubeGeometry(
+      stemCurve,
+      42,
+      .088,
+      12,
+      false
+    ),
+
+    new THREE.MeshPhysicalMaterial({
+
+      color:
+        "#294826",
+
+      roughness:
+        .82,
+
+      metalness:
+        .015,
+
+      clearcoat:
+        .15
+    })
+  );
+
+
+WORLD.stem.castShadow =
+  QUALITY.tier !== "low";
+
+
+WORLD.stem.receiveShadow =
+  QUALITY.tier !== "low";
+
+
+WORLD.stemGroup.add(
+  WORLD.stem
+);
+
+
+ENGINE.scene.add(
+  WORLD.stemGroup
+);
+
+
+/* =========================================================
+   THORNS
+========================================================= */
+
+function createThorn(
+  y,
+  side,
+  size,
+  phase
+) {
+
+  const thorn =
+    new THREE.Mesh(
+
+      new THREE.ConeGeometry(
+        size,
+        size * 2.8,
+        7
+      ),
+
+      new THREE.MeshPhysicalMaterial({
+
+        color:
+          "#203620",
+
+        roughness:
+          .90,
+
+        metalness:
+          .01
+      })
+    );
+
+
+  thorn.position.set(
+    side * .095,
+    y,
+    .02
+  );
+
+
+  thorn.rotation.z =
+    side *
+    Math.PI /
+    2.3;
+
+
+  thorn.rotation.y =
+    phase;
+
+
+  thorn.castShadow =
+    QUALITY.tier !== "low";
+
+
+  thorn.userData = {
+
+    baseY:
+      thorn.rotation.y,
+
+    phase
+  };
+
+
+  ROSE.thorns.push(
+    thorn
+  );
+
+
+  WORLD.stemGroup.add(
+    thorn
+  );
+}
+
+
+createThorn(.48,-1,.065,.2);
+createThorn(.94,1,.070,-.35);
+createThorn(1.48,-1,.060,.45);
+createThorn(2.02,1,.052,-.40);
+
+
+/* =========================================================
+   LEAF GEOMETRY
+========================================================= */
+
+function createLeafGeometry() {
+
+  const shape =
+    new THREE.Shape();
+
+
+  shape.moveTo(
+    0,
+    0
+  );
+
+
+  shape.bezierCurveTo(
+    .28,
+    .35,
+    .82,
+    .25,
+    1.24,
+    0
+  );
+
+
+  shape.bezierCurveTo(
+    .84,
+    -.26,
+    .32,
+    -.32,
+    0,
+    0
+  );
+
+
+  return new THREE.ShapeGeometry(
+    shape,
+    16
+  );
+}
+
+
+function createLeafMaterial(
+  color
+) {
+
+  return new THREE.MeshPhysicalMaterial({
+
+    color,
+
+    roughness:
+      .70,
+
+    metalness:
+      .008,
+
+    clearcoat:
+      .16,
+
+    clearcoatRoughness:
+      .46,
+
+    sheen:
+      .20,
+
+    sheenColor:
+      "#9fb97c",
+
+    side:
+      THREE.DoubleSide
+  });
+}
+
+
+const leafConfigs = [
+
+  {
+    y:.80,
+    side:-1,
+    scale:.88
+  },
+
+  {
+    y:1.28,
+    side:1,
+    scale:1.05
+  },
+
+  {
+    y:1.82,
+    side:-1,
+    scale:.88
+  },
+
+  {
+    y:2.38,
+    side:1,
+    scale:.80
+  }
+];
+
+
+function addStemLeaf(
+  config,
+  index
+) {
+
+  const leaf =
+    new THREE.Mesh(
+
+      createLeafGeometry(),
+
+      createLeafMaterial(
+
+        index % 2 === 0
+          ? "#315329"
+          : "#416b39"
+      )
+    );
+
+
+  leaf.position.set(
+    0,
+    config.y,
+    0
+  );
+
+
+  leaf.rotation.set(
+
+    -.24,
+
+    config.side === 1
+      ? -.16
+      : Math.PI + .16,
+
+    config.side === 1
+      ? .13
+      : -.13
+  );
+
+
+  leaf.scale.setScalar(
+    config.scale
+  );
+
+
+  leaf.castShadow =
+    QUALITY.tier !== "low";
+
+  leaf.receiveShadow =
+    QUALITY.tier !== "low";
+
+
+  leaf.userData = {
+
+    baseX:
+      leaf.rotation.x,
+
+    baseY:
+      leaf.rotation.y,
+
+    baseZ:
+      leaf.rotation.z,
+
+    phase:
+      index * 1.75,
+
+    influence:
+      .52 +
+      index * .09,
+
+    stiffness:
+      2.6 -
+      index * .16
+  };
+
+
+  ROSE.leaves.push(
+    leaf
+  );
+
+
+  WORLD.stemGroup.add(
+    leaf
+  );
+
+
+  return leaf;
+}
+
+
+for (
+  let i = 0;
+  i < leafConfigs.length;
+  i++
+) {
+
+  addStemLeaf(
+    leafConfigs[i],
+    i
+  );
+}
+
+
+/* =========================================================
+   LEAF VEINS
+========================================================= */
+
+function addLeafVeins(
+  leaf,
+  scale
+) {
+
+  const material =
+    new THREE.LineBasicMaterial({
+
+      color:
+        "#809b68",
+
+      transparent:
+        true,
+
+      opacity:
+        .22,
+
+      depthWrite:
+        false
+    });
+
+
+  const points = [];
+
+
+  for (
+    let i = 0;
+    i < 5;
+    i++
+  ) {
+
+    const t =
+      .16 +
+      i * .16;
+
+
+    const x =
+      t * 1.24;
+
+
+    const y =
+      Math.sin(
+        t * Math.PI
+      ) *
+      .07;
+
+
+    points.push(
+
+      new THREE.Vector3(
+        0,
+        .003,
+        .003
+      ),
+
+      new THREE.Vector3(
+        x,
+        y,
+        .005
+      )
+    );
+  }
+
+
+  const geometry =
+    new THREE.BufferGeometry()
+      .setFromPoints(
+        points
+      );
+
+
+  const lines =
+    new THREE.LineSegments(
+      geometry,
+      material
+    );
+
+
+  lines.scale.setScalar(
+    scale
+  );
+
+
+  leaf.add(
+    lines
+  );
+
+
+  ROSE.veinLines.push(
+    lines
+  );
+}
+
+
+for (
+  const leaf
+  of ROSE.leaves
+) {
+
+  addLeafVeins(
+    leaf,
+    1
+  );
+}
+
+
+/* =========================================================
+   HIGH CANOPY
+========================================================= */
+
+WORLD.canopyGroup =
+  new THREE.Group();
+
+
+const canopyConfigs = [
+
+  {
+    x:-1.55,
+    y:4.10,
+    z:-.45,
+    ry:-.58,
+    rz:-.19,
+    scale:1.25,
+    phase:.4
+  },
+
+  {
+    x:1.28,
+    y:4.42,
+    z:-.22,
+    ry:.52,
+    rz:.17,
+    scale:1.35,
+    phase:1.55
+  },
+
+  {
+    x:-.90,
+    y:4.86,
+    z:.16,
+    ry:-.30,
+    rz:-.13,
+    scale:1.18,
+    phase:2.8
+  },
+
+  {
+    x:.86,
+    y:5.15,
+    z:-.08,
+    ry:.37,
+    rz:.18,
+    scale:1.30,
+    phase:4.05
+  },
+
+  {
+    x:-.14,
+    y:5.62,
+    z:-.55,
+    ry:-.14,
+    rz:.03,
+    scale:1.45,
+    phase:5.15
+  },
+
+  {
+    x:1.55,
+    y:5.90,
+    z:.22,
+    ry:.62,
+    rz:.24,
+    scale:1.14,
+    phase:6.25
+  },
+
+  {
+    x:-1.55,
+    y:6.10,
+    z:.10,
+    ry:-.55,
+    rz:-.22,
+    scale:1.18,
+    phase:7.35
+  }
+];
+
+
+for (
+  let i = 0;
+  i < canopyConfigs.length;
+  i++
+) {
+
+  const c =
+    canopyConfigs[i];
+
+
+  const leaf =
+    new THREE.Mesh(
+
+      createLeafGeometry(),
+
+      createLeafMaterial(
+        i % 2 === 0
+          ? "#315e2d"
+          : "#4b763c"
+      )
+    );
+
+
+  leaf.position.set(
+    c.x,
+    c.y,
+    c.z
+  );
+
+
+  leaf.rotation.set(
+    -.30,
+    c.ry,
+    c.rz
+  );
+
+
+  leaf.scale.setScalar(
+    c.scale
+  );
+
+
+  leaf.castShadow =
+    QUALITY.tier !== "low";
+
+  leaf.receiveShadow =
+    QUALITY.tier !== "low";
+
+
+  leaf.userData = {
+
+    baseX:
+      leaf.rotation.x,
+
+    baseY:
+      leaf.rotation.y,
+
+    baseZ:
+      leaf.rotation.z,
+
+    phase:
+      c.phase,
+
+    influence:
+      .72,
+
+    stiffness:
+      1.45
+  };
+
+
+  ROSE.canopyLeaves.push(
+    leaf
+  );
+
+
+  WORLD.canopyGroup.add(
+    leaf
+  );
+
+
+  addLeafVeins(
+    leaf,
+    c.scale
+  );
+}
+
+
+ENGINE.scene.add(
+  WORLD.canopyGroup
+);
+
+
+/* =========================================================
+   PETAL GEOMETRY
+========================================================= */
+
+function createPetalGeometry(
+  options = {}
+) {
+
+  const {
+
+    width = 1,
+
+    height = 1.3,
+
+    curvature = .3,
+
+    thickness = .035,
+
+    horizontalSegments =
+      QUALITY.petalSegmentsU,
+
+    verticalSegments =
+      QUALITY.petalSegmentsV
+
+  } = options;
+
+
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+
+
+  for (
+    let y = 0;
+    y <= verticalSegments;
+    y++
+  ) {
+
+    const v =
+      y /
+      verticalSegments;
+
+
+    for (
+      let x = 0;
+      x <= horizontalSegments;
+      x++
+    ) {
+
+      const u =
+        x /
+        horizontalSegments;
+
+
+      const centered =
+        u * 2 - 1;
+
+
+      const crown =
+        Math.max(
+          0,
+          1 -
+          centered *
+          centered
+        );
+
+
+      const edge =
+        Math.pow(
+          crown,
+          .30
+        );
+
+
+      const taper =
+        .29 +
+        edge * .80;
+
+
+      const edgeWave =
+        Math.sin(
+          u *
+          Math.PI *
+          4
+        ) *
+        .016 *
+        Math.pow(
+          v,
+          1.7
+        );
+
+
+      const microFold =
+        Math.sin(
+          v *
+          Math.PI *
+          1.7 +
+          u * 4.4
+        ) *
+        .007;
+
+
+      const px =
+        centered *
+        width *
+        .5 *
+        taper *
+        (
+          .87 +
+          .13 *
+          Math.sin(
+            v *
+            Math.PI
+          )
+        );
+
+
+      let py =
+        v *
+        height;
+
+
+      const fold =
+        Math.sin(
+          v *
+          Math.PI *
+          1.28
+        ) *
+        Math.sin(
+          u *
+          Math.PI *
+          2.15
+        ) *
+        curvature *
+        .09;
+
+
+      const pz =
+        curvature *
+        .72 *
+        crown *
+        (
+          .20 +
+          v *
+          .95
+        ) +
+        fold +
+        edgeWave +
+        microFold;
+
+
+      py +=
+        Math.sin(
+          v *
+          Math.PI
+        ) *
+        thickness *
+        .20;
+
+
+      positions.push(
+        px,
+        py,
+        pz
+      );
+
+
+      uvs.push(
+        u,
+        v
+      );
+    }
+  }
+
+
+  const row =
+    horizontalSegments + 1;
+
+
+  for (
+    let y = 0;
+    y < verticalSegments;
+    y++
+  ) {
+
+    for (
+      let x = 0;
+      x < horizontalSegments;
+      x++
+    ) {
+
+      const a =
+        y * row + x;
+
+      const b =
+        a + 1;
+
+      const c =
+        a + row;
+
+      const d =
+        c + 1;
+
+
+      indices.push(
+        a,c,b,
+        b,c,d
+      );
+    }
+  }
+
+
+  const geometry =
+    new THREE.BufferGeometry();
+
+
+  geometry.setAttribute(
+    "position",
+
+    new THREE.Float32BufferAttribute(
+      positions,
+      3
+    )
+  );
+
+
+  geometry.setAttribute(
+    "uv",
+
+    new THREE.Float32BufferAttribute(
+      uvs,
+      2
+    )
+  );
+
+
+  geometry.setIndex(
+    indices
+  );
+
+
+  geometry.computeVertexNormals();
+
+
+  return geometry;
+}
+
+
+/* =========================================================
+   PETAL MATERIAL
+========================================================= */
+
+const PETAL_COLORS = [
+
+  "#72091e",
+  "#851027",
+  "#991330",
+  "#ad1938",
+  "#bf2543",
+  "#ce3854"
+];
+
+
+function createPetalMaterial(
+  layer,
+  inner = false
+) {
+
+  const color =
+    PETAL_COLORS[
+      Math.min(
+        layer +
+        (
+          inner ? 1 : 0
+        ),
+        PETAL_COLORS.length - 1
+      )
+    ];
+
+
+  return new THREE.MeshPhysicalMaterial({
+
+    color,
+
+    roughness:
+      inner
+        ? .50
+        : .62 -
+          layer * .015,
+
+    metalness:
+      .006,
+
+    clearcoat:
+      inner
+        ? .38
+        : .30,
+
+    clearcoatRoughness:
+      .38,
+
+    sheen:
+      .40,
+
+    sheenColor:
+      "#ff7284",
+
+    sheenRoughness:
+      .40,
+
+    specularIntensity:
+      .74,
+
+    iridescence:
+      .055,
+
+    iridescenceIOR:
+      1.30,
+
+    side:
+      THREE.DoubleSide,
+
+    emissive:
+      new THREE.Color(
+        color
+      ),
+
+    emissiveIntensity:
+      inner ? .07 : .018
+  });
+}
+
+
+/* =========================================================
+   ROSE
+========================================================= */
+
+WORLD.rose =
+  new THREE.Group();
+
+
+WORLD.bud =
+  new THREE.Mesh(
+
+    new THREE.SphereGeometry(
+      .80,
+      40,
+      30
+    ),
+
+    new THREE.MeshPhysicalMaterial({
+
+      color:
+        "#70081d",
+
+      roughness:
+        .66,
+
+      clearcoat:
+        .32,
+
+      sheen:
+        .36,
+
+      sheenColor:
+        "#ff6b80",
+
+      specularIntensity:
+        .74,
+
+      emissive:
+        new THREE.Color(
+          "#490615"
+        ),
+
+      emissiveIntensity:
+        .025
+    })
+  );
+
+
+WORLD.bud.scale.set(
+  .88,
+  1.48,
+  .84
+);
+
+
+WORLD.bud.position.y =
+  3;
+
+
+WORLD.bud.castShadow =
+  QUALITY.tier !== "low";
+
+
+WORLD.rose.add(
+  WORLD.bud
+);
+
+
+/* =========================================================
+   PETAL ADD
+========================================================= */
+
+function addPetal(
+  config,
+  layer,
+  index
+) {
+
+  const petal =
+    new THREE.Mesh(
+
+      createPetalGeometry({
+
+        width:
+          config.width,
+
+        height:
+          config.height,
+
+        curvature:
+          config.curvature,
+
+        thickness:
+          config.thickness
+      }),
+
+      createPetalMaterial(
+        layer,
+        false
+      )
+    );
+
+
+  petal.position.copy(
+    config.position
+  );
+
+
+  petal.rotation.copy(
+    config.rotation
+  );
+
+
+  petal.scale.copy(
+    config.scale
+  );
+
+
+  petal.castShadow =
+    QUALITY.tier !== "low";
+
+
+  petal.receiveShadow =
+    QUALITY.tier !== "low";
+
+
+  petal.userData = {
+
+    layer,
+
+    index,
+
+    phase:
+      config.phase,
+
+    delay:
+      config.delay,
+
+    duration:
+      config.duration,
+
+    influence:
+      config.influence,
+
+    stiffness:
+      config.stiffness,
+
+    basePosition:
+      config.position.clone(),
+
+    baseRotation:
+      config.rotation.clone(),
+
+    baseScale:
+      config.scale.clone(),
+
+    windX:
+      0,
+
+    windY:
+      0,
+
+    windZ:
+      0
+  };
+
+
+  ROSE.petals.push(
+    petal
+  );
+
+
+  WORLD.rose.add(
+    petal
+  );
+}
+
+
+/* =========================================================
+   FIVE LAYERS
+========================================================= */
+
+function createPetalLayer(
+  config
+) {
+
+  for (
+    let i = 0;
+    i < config.count;
+    i++
+  ) {
+
+    const ratio =
+      i /
+      config.count;
+
+
+    const angle =
+      ratio *
+      Math.PI *
+      2 +
+      config.layer *
+      .47;
+
+
+    const radius =
+      config.radius +
+      Math.sin(
+        i * 2.17 +
+        config.layer
+      ) *
+      .026;
+
+
+    const position =
+      new THREE.Vector3(
+
+        Math.sin(angle) *
+        radius,
+
+        2.96 +
+        config.layer *
+        .075 +
+        Math.cos(
+          i * 1.7
+        ) *
+        .022,
+
+        Math.cos(angle) *
+        radius
+      );
+
+
+    const rotation =
+      new THREE.Euler(
+
+        config.tilt +
+        Math.sin(
+          i * 1.3
+        ) *
+        .06,
+
+        angle,
+
+        Math.sin(
+          i * 2.1
+        ) *
+        .07
+      );
+
+
+    const scale =
+      new THREE.Vector3(
+
+        .96 +
+        Math.sin(
+          i * 2.1
+        ) *
+        .045,
+
+        .84 +
+        Math.cos(
+          i * 1.7
+        ) *
+        .075,
+
+        1
+      );
+
+
+    addPetal(
+
+      {
+
+        width:
+          config.width,
+
+        height:
+          config.height,
+
+        curvature:
+          config.curvature,
+
+        thickness:
+          .030 +
+          config.layer *
+          .004,
+
+        phase:
+          i * .43 +
+          config.layer *
+          1.37,
+
+        delay:
+          config.delay +
+          ratio * .040,
+
+        duration:
+          .145 +
+          config.layer *
+          .020,
+
+        influence:
+          config.influence,
+
+        stiffness:
+          config.stiffness,
+
+        position,
+
+        rotation,
+
+        scale
+
+      },
+
+      config.layer,
+
+      i
+    );
+  }
+}
+
+
+createPetalLayer({
+
+  count:14,
+  radius:.23,
+  width:1.42,
+  height:1.73,
+  layer:0,
+  tilt:.74,
+  delay:.40,
+  curvature:.36,
+  influence:1,
+  stiffness:1.8
+});
+
+
+createPetalLayer({
+
+  count:13,
+  radius:.175,
+  width:1.29,
+  height:1.58,
+  layer:1,
+  tilt:.63,
+  delay:.49,
+  curvature:.40,
+  influence:.85,
+  stiffness:2
+});
+
+
+createPetalLayer({
+
+  count:11,
+  radius:.115,
+  width:1.12,
+  height:1.40,
+  layer:2,
+  tilt:.53,
+  delay:.58,
+  curvature:.45,
+  influence:.70,
+  stiffness:2.25
+});
+
+
+createPetalLayer({
+
+  count:10,
+  radius:.075,
+  width:.93,
+  height:1.21,
+  layer:3,
+  tilt:.46,
+  delay:.67,
+  curvature:.50,
+  influence:.54,
+  stiffness:2.5
+});
+
+
+createPetalLayer({
+
+  count:8,
+  radius:.045,
+  width:.71,
+  height:.93,
+  layer:4,
+  tilt:.40,
+  delay:.74,
+  curvature:.56,
+  influence:.40,
+  stiffness:2.8
+});
+
+
+/* =========================================================
+   SEPALS
+========================================================= */
+
+function createSepalGeometry() {
+
+  const shape =
+    new THREE.Shape();
+
+
+  shape.moveTo(
+    0,
+    0
+  );
+
+
+  shape.bezierCurveTo(
+    .14,
+    -.02,
+    .28,
+    -.10,
+    .38,
+    -.32
+  );
+
+
+  shape.bezierCurveTo(
+    .18,
+    -.18,
+    -.10,
+    -.12,
+    0,
+    0
+  );
+
+
+  return new THREE.ShapeGeometry(
+    shape,
+    8
+  );
+}
+
+
+for (
+  let i = 0;
+  i < 5;
+  i++
+) {
+
+  const angle =
+    i /
+    5 *
+    Math.PI *
+    2;
+
+
+  const sepal =
+    new THREE.Mesh(
+
+      createSepalGeometry(),
+
+      new THREE.MeshPhysicalMaterial({
+
+        color:
+          i % 2 === 0
+            ? "#294b25"
+            : "#365c30",
+
+        roughness:
+          .82,
+
+        metalness:
+          .01,
+
+        clearcoat:
+          .10,
+
+        side:
+          THREE.DoubleSide
+      })
+    );
+
+
+  sepal.position.set(
+
+    Math.sin(angle) *
+    .16,
+
+    2.54,
+
+    Math.cos(angle) *
+    .16
+  );
+
+
+  sepal.rotation.set(
+    -.35,
+    angle,
+    0
+  );
+
+
+  sepal.scale.setScalar(
+    1.05
+  );
+
+
+  sepal.castShadow =
+    QUALITY.tier !== "low";
+
+
+  ROSE.sepals.push(
+    sepal
+  );
+
+
+  WORLD.rose.add(
+    sepal
+  );
+}
+
+
+/* =========================================================
+   CORE
+========================================================= */
+
+WORLD.core =
+  new THREE.Group();
+
+
+WORLD.core.position.y =
+  3.10;
+
+
+const coreBody =
+  new THREE.Mesh(
+
+    new THREE.SphereGeometry(
+      .43,
+      30,
+      22
+    ),
+
+    new THREE.MeshPhysicalMaterial({
+
+      color:
+        "#5b0718",
+
+      roughness:
+        .54,
+
+      clearcoat:
+        .30,
+
+      sheen:
+        .34,
+
+      sheenColor:
+        "#ff7184",
+
+      specularIntensity:
+        .78,
+
+      emissive:
+        new THREE.Color(
+          "#7c0b25"
+        ),
+
+      emissiveIntensity:
+        .06
+    })
+  );
+
+
+coreBody.scale.set(
+  1,
+  1.15,
+  .88
+);
+
+
+WORLD.core.add(
+  coreBody
+);
+
+
+for (
+  let i = 0;
+  i < 12;
+  i++
+) {
+
+  const angle =
+    i /
+    12 *
+    Math.PI *
+    2;
+
+
+  const inner =
+    new THREE.Mesh(
+
+      createPetalGeometry({
+
+        width:
+          .25 +
+          (i % 3) *
+          .025,
+
+        height:
+          .48 +
+          (i % 2) *
+          .04,
+
+        curvature:
+          .47,
+
+        thickness:
+          .026,
+
+        horizontalSegments:
+          9,
+
+        verticalSegments:
+          14
+      }),
+
+      new THREE.MeshPhysicalMaterial({
+
+        color:
+          i % 2
+            ? "#b51b3b"
+            : "#8f0d2b",
+
+        roughness:
+          .49,
+
+        clearcoat:
+          .28,
+
+        sheen:
+          .30,
+
+        sheenColor:
+          "#ff7385",
+
+        specularIntensity:
+          .80,
+
+        emissive:
+          new THREE.Color(
+            "#8e0d29"
+          ),
+
+        emissiveIntensity:
+          .075,
+
+        side:
+          THREE.DoubleSide
+      })
+    );
+
+
+  inner.position.set(
+
+    Math.cos(angle) *
+    .16,
+
+    .025 +
+    (
+      i % 2
+    ) *
+    .022,
+
+    Math.sin(angle) *
+    .16
+  );
+
+
+  inner.rotation.set(
+    .56,
+    angle,
+    .02 *
+    Math.sin(i)
+  );
+
+
+  WORLD.core.add(
+    inner
+  );
+}
+
+
+WORLD.core.scale.setScalar(
+  .46
+);
+
+
+WORLD.rose.add(
+  WORLD.core
+);
+
+
+/* =========================================================
+   DEW
+========================================================= */
+
+const dewGeometry =
+  new THREE.SphereGeometry(
+    1,
+    14,
+    12
+  );
+
+
+const dewPositions = [
+
+  [.34,4.06,.06,.026],
+  [-.42,4.12,.02,.021],
+  [.10,4.43,-.04,.018],
+  [.48,3.69,.05,.022],
+  [-.28,3.71,-.02,.019],
+  [.03,4.07,.31,.017],
+  [-.08,2.20,.06,.014],
+  [.34,2.03,.08,.016],
+  [-.20,3.30,.19,.012],
+  [.22,3.50,-.12,.013],
+  [-.37,3.98,.14,.015],
+  [.39,3.88,.15,.014]
+];
+
+
+for (
+  let i = 0;
+  i < dewPositions.length;
+  i++
+) {
+
+  const p =
+    dewPositions[i];
+
+
+  const drop =
+    new THREE.Mesh(
+
+      dewGeometry,
+
+      new THREE.MeshPhysicalMaterial({
+
+        color:
+          "#e3f1f4",
+
+        transparent:
+          true,
+
+        opacity:
+          .40,
+
+        roughness:
+          .05,
+
+        metalness:
+          .01,
+
+        transmission:
+          .28,
+
+        thickness:
+          .075,
+
+        clearcoat:
+          1,
+
+        clearcoatRoughness:
+          .028,
+
+        ior:
+          1.33
+      })
+    );
+
+
+  drop.position.set(
+    p[0],
+    p[1],
+    p[2]
+  );
+
+
+  drop.scale.setScalar(
+    p[3]
+  );
+
+
+  drop.userData = {
+    phase:
+      i * 1.18
+  };
+
+
+  ROSE.dew.push(
+    drop
+  );
+
+
+  WORLD.rose.add(
+    drop
+  );
+}
+
+
+ENGINE.scene.add(
+  WORLD.rose
+);
+
+
+/* =========================================================
+   BUTTERFLY
+========================================================= */
+
+const BUTTERFLY = {
+
+  group:
+    new THREE.Group(),
+
+  leftWing:
+    null,
+
+  rightWing:
+    null,
+
+  body:
+    null,
+
+  baseY:
+    4.04,
+
+  phase:
+    0
+};
+
+
+const butterflyShape =
+  new THREE.Shape();
+
+
+butterflyShape.moveTo(
+  0,
+  0
+);
+
+
+butterflyShape.bezierCurveTo(
+  .40,
+  .44,
+  .82,
+  .66,
+  1.02,
+  .18
+);
+
+
+butterflyShape.bezierCurveTo(
+  1.08,
+  -.03,
+  .74,
+  -.32,
+  .18,
+  -.22
+);
+
+
+butterflyShape.bezierCurveTo(
+  .08,
+  -.12,
+  .03,
+  -.04,
+  0,
+  0
+);
+
+
+const butterflyGeometry =
+  new THREE.ShapeGeometry(
+    butterflyShape,
+    14
+  );
+
+
+const butterflyMaterial =
+  new THREE.MeshPhysicalMaterial({
+
+    color:
+      "#4a275a",
+
+    roughness:
+      .34,
+
+    metalness:
+      .02,
+
+    clearcoat:
+      .48,
+
+    clearcoatRoughness:
+      .25,
+
+    sheen:
+      .56,
+
+    sheenColor:
+      "#e8a2c1",
+
+    side:
+      THREE.DoubleSide
+  });
+
+
+BUTTERFLY.leftWing =
+  new THREE.Mesh(
+    butterflyGeometry,
+    butterflyMaterial.clone()
+  );
+
+
+BUTTERFLY.rightWing =
+  new THREE.Mesh(
+    butterflyGeometry,
+    butterflyMaterial.clone()
+  );
+
+
+BUTTERFLY.leftWing.scale.set(
+  .56,
+  .56,
+  .56
+);
+
+
+BUTTERFLY.rightWing.scale.set(
+  -.56,
+  .56,
+  .56
+);
+
+
+BUTTERFLY.leftWing.rotation.y =
+  -.19;
+
+BUTTERFLY.rightWing.rotation.y =
+  .19;
+
+
+BUTTERFLY.leftWing.rotation.z =
+  .18;
+
+BUTTERFLY.rightWing.rotation.z =
+  -.18;
+
+
+BUTTERFLY.body =
+  new THREE.Mesh(
+
+    new THREE.CapsuleGeometry(
+      .052,
+      .30,
+      6,
+      10
+    ),
+
+    new THREE.MeshPhysicalMaterial({
+
+      color:
+        "#20171f",
+
+      roughness:
+        .55,
+
+      clearcoat:
+        .16
+    })
+  );
+
+
+BUTTERFLY.body.rotation.z =
+  Math.PI / 2;
+
+
+BUTTERFLY.group.add(
+  BUTTERFLY.leftWing
+);
+
+
+BUTTERFLY.group.add(
+  BUTTERFLY.rightWing
+);
+
+
+BUTTERFLY.group.add(
+  BUTTERFLY.body
+);
+
+
+BUTTERFLY.group.position.set(
+  .18,
+  BUTTERFLY.baseY,
+  .09
+);
+
+
+BUTTERFLY.group.rotation.set(
+  -.15,
+  .40,
+  -.05
+);
+
+
+BUTTERFLY.group.scale.setScalar(
+  .58
+);
+
+
+WORLD.rose.add(
+  BUTTERFLY.group
+);
+
+
+/* =========================================================
+   CAMERA SHOTS
+========================================================= */
+
+const SHOTS = {
+
+  extremeWide: {
+
+    position:
+      new THREE.Vector3(
+        0,
+        7,
+        52
+      ),
+
+    look:
+      new THREE.Vector3(
+        0,
+        3,
+        0
+      )
+  },
+
+
+  wide: {
+
+    position:
+      new THREE.Vector3(
+        .25,
+        6.1,
+        31
+      ),
+
+    look:
+      new THREE.Vector3(
+        0,
+        3.15,
+        0
+      )
+  },
+
+
+  approach: {
+
+    position:
+      new THREE.Vector3(
+        .35,
+        5.35,
+        15.5
+      ),
+
+    look:
+      new THREE.Vector3(
+        0,
+        3.45,
+        0
+      )
+  },
+
+
+  macro: {
+
+    position:
+      new THREE.Vector3(
+        1.05,
+        4.85,
+        6.4
+      ),
+
+    look:
+      new THREE.Vector3(
+        0,
+        3.72,
+        0
+      )
+  },
+
+
+  hero: {
+
+    position:
+      new THREE.Vector3(
+        1.18,
+        5.02,
+        4.30
+      ),
+
+    look:
+      new THREE.Vector3(
+        0,
+        4.00,
+        0
+      )
+  },
+
+
+  upward: {
+
+    position:
+      new THREE.Vector3(
+        1.10,
+        5.90,
+        4.18
+      ),
+
+    look:
+      new THREE.Vector3(
+        0,
+        5.15,
+        0
+      )
+  }
+};
+
+
+function sampleCamera(
+  progress
+) {
+
+  let A;
+  let B;
+  let t;
+
+
+  if (
+    progress < .18
+  ) {
+
+    A =
+      SHOTS.extremeWide;
+
+    B =
+      SHOTS.wide;
+
+    t =
+      easeInOut(
+        progress / .18
+      );
+
+  } else if (
+    progress < .43
+  ) {
+
+    A =
+      SHOTS.wide;
+
+    B =
+      SHOTS.approach;
+
+    t =
+      easeInOut(
+        (
+          progress -
+          .18
+        ) / .25
+      );
+
+  } else if (
+    progress < .68
+  ) {
+
+    A =
+      SHOTS.approach;
+
+    B =
+      SHOTS.macro;
+
+    t =
+      easeInOut(
+        (
+          progress -
+          .43
+        ) / .25
+      );
+
+  } else if (
+    progress < .84
+  ) {
+
+    A =
+      SHOTS.macro;
+
+    B =
+      SHOTS.hero;
+
+    t =
+      easeInOut(
+        (
+          progress -
+          .68
+        ) / .16
+      );
+
+  } else {
+
+    A =
+      SHOTS.hero;
+
+    B =
+      SHOTS.upward;
+
+    t =
+      easeInOut(
+        (
+          progress -
+          .84
+        ) / .16
+      );
+  }
+
+
+  STATE.cameraPosition.lerpVectors(
+    A.position,
+    B.position,
+    t
+  );
+
+
+  STATE.cameraLook.lerpVectors(
+    A.look,
+    B.look,
+    t
+  );
+}
+
+
+/* =========================================================
+   WIND
+========================================================= */
+
+const WIND = {
+
+  direction:
+    new THREE.Vector3(
+      1,
+      0,
+      .1
+    ),
+
+  vector:
+    new THREE.Vector3(),
+
+  gust:
+    0,
+
+  gustTarget:
+    0,
+
+  phase:
+    0
+};
+
+
+function updateWind(dt) {
+
+  WIND.phase +=
+    dt;
+
+
+  const slow =
+    fbm(
+      WIND.phase *
+      .045
+    );
+
+
+  const medium =
+    fbm(
+      WIND.phase *
+      .13 +
+      11.3
+    );
+
+
+  const rhythmic =
+    Math.sin(
+      WIND.phase *
+      .052 +
+      1.6
+    ) *
+    .5 +
+    .5;
+
+
+  WIND.gustTarget =
+    Math.pow(
+      rhythmic,
+      8
+    ) *
+    .68 +
+    Math.max(
+      0,
+      slow
+    ) *
+    .12;
+
+
+  WIND.gust =
+    damp(
+      WIND.gust,
+      WIND.gustTarget,
+      1.15,
+      dt
+    );
+
+
+  const angle =
+    .12 +
+    noise1D(
+      WIND.phase *
+      .06
+    ) *
+    .08 +
+    medium *
+    .03;
+
+
+  WIND.direction.set(
+    Math.cos(angle),
+    0,
+    Math.sin(angle)
+  ).normalize();
+
+
+  STATE.windStrength =
+    .12 +
+    WIND.gust *
+    .82 +
+    Math.max(
+      0,
+      slow
+    ) *
+    .08;
+
+
+  WIND.vector
+    .copy(
+      WIND.direction
+    )
+    .multiplyScalar(
+      STATE.windStrength
+    );
+}
+
+
+/* =========================================================
+   SKY UPDATE
+========================================================= */
+
+function updateSky(
+  progress,
+  dt
+) {
+
+  const uniforms =
+    WORLD.sky
+      .material
+      .uniforms;
+
+
+  const top =
+    uniforms
+      .topColor
+      .value;
+
+  const middle =
+    uniforms
+      .middleColor
+      .value;
+
+  const horizon =
+    uniforms
+      .horizonColor
+      .value;
+
+
+  if (
+    progress < .32
+  ) {
+
+    const t =
+      easeInOut(
+        progress / .32
+      );
+
+
+    top.lerpColors(
+      SKY.top0,
+      SKY.top1,
+      t
+    );
+
+
+    middle.lerpColors(
+      SKY.mid0,
+      SKY.mid1,
+      t
+    );
+
+
+    horizon.lerpColors(
+      SKY.horizon0,
+      SKY.horizon1,
+      t
+    );
+
+  } else if (
+    progress < .70
+  ) {
+
+    const t =
+      easeInOut(
+        (
+          progress -
+          .32
+        ) / .38
+      );
+
+
+    top.lerpColors(
+      SKY.top1,
+      SKY.top2,
+      t
+    );
+
+
+    middle.lerpColors(
+      SKY.mid1,
+      SKY.mid2,
+      t
+    );
+
+
+    horizon.lerpColors(
+      SKY.horizon1,
+      SKY.horizon2,
+      t
+    );
+
+  } else {
+
+    const t =
+      easeInOut(
+        (
+          progress -
+          .70
+        ) / .30
+      );
+
+
+    top.lerpColors(
+      SKY.top2,
+      SKY.top3,
+      t
+    );
+
+
+    middle.lerpColors(
+      SKY.mid2,
+      SKY.mid3,
+      t
+    );
+
+
+    horizon.lerpColors(
+      SKY.horizon2,
+      SKY.horizon3,
+      t
+    );
+  }
+
+
+  uniforms.horizonGlow.value =
+    .20 +
+    range(
+      progress,
+      .45,
+      1
+    ) *
+    .12;
+
+
+  uniforms.time.value =
+    STATE.time;
+
+
+  ENGINE.scene.fog.density =
+    damp(
+      ENGINE.scene.fog.density,
+
+      THREE.MathUtils.lerp(
+        .008,
+        .0055,
+        range(
+          STATE.cameraProgress,
+          .18,
+          .95
+        )
+      ),
+
+      2.4,
+
+      dt
+    );
+}
+
+
+/* =========================================================
+   CLEARER CLOUDS
+========================================================= */
+
+function createCloudTexture() {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+  canvas.width =
+    512;
+
+  canvas.height =
+    256;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  /*
+    Base cloud.
+  */
+
+  const base =
+    ctx.createRadialGradient(
+      256,
+      128,
+      8,
+      256,
+      128,
+      235
+    );
+
+
+  base.addColorStop(
+    0,
+    "rgba(255,255,255,.42)"
+  );
+
+  base.addColorStop(
+    .22,
+    "rgba(255,255,255,.31)"
+  );
+
+  base.addColorStop(
+    .48,
+    "rgba(240,246,248,.16)"
+  );
+
+  base.addColorStop(
+    .72,
+    "rgba(220,231,236,.06)"
+  );
+
+  base.addColorStop(
+    1,
+    "rgba(220,231,236,0)"
+  );
+
+
+  ctx.fillStyle =
+    base;
+
+
+  ctx.fillRect(
+    0,
+    0,
+    512,
+    256
+  );
+
+
+  /*
+    Additional soft cloud masses.
+    Dadurch sind die Wolken aus großer
+    Distanz deutlich erkennbar.
+  */
+
+  const masses = [
+    [120,125,90,60,.20],
+    [200,105,125,78,.17],
+    [290,135,112,68,.16],
+    [390,115,94,58,.13]
+  ];
+
+
+  for (
+    const [
+      x,
+      y,
+      rx,
+      ry,
+      opacity
+    ]
+    of masses
+  ) {
+
+    const g =
+      ctx.createRadialGradient(
+        x,
+        y,
+        0,
+        x,
+        y,
+        rx
+      );
+
+
+    g.addColorStop(
+      0,
+      `rgba(255,255,255,${opacity})`
+    );
+
+
+    g.addColorStop(
+      .7,
+      `rgba(245,250,252,${opacity * .35})`
+    );
+
+
+    g.addColorStop(
+      1,
+      "rgba(255,255,255,0)"
+    );
+
+
+    ctx.fillStyle =
+      g;
+
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+      x,
+      y,
+      rx,
+      ry,
+      0,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+  }
+
+
+  return new THREE.CanvasTexture(
+    canvas
+  );
+}
+
+
+const CLOUD_TEXTURE =
+  createCloudTexture();
+
+
+WORLD.cloudGroup =
+  new THREE.Group();
+
+
+const cloudCount =
+  mobile
+    ? 12
+    : 22;
+
+
+for (
+  let i = 0;
+  i < cloudCount;
+  i++
+) {
+
+  const cluster =
+    new THREE.Group();
+
+
+  const pieces =
+    3 +
+    (
+      i % 4
+    );
+
+
+  for (
+    let p = 0;
+    p < pieces;
+    p++
+  ) {
+
+    const sprite =
+      new THREE.Sprite(
+
+        new THREE.SpriteMaterial({
+
+          map:
+            CLOUD_TEXTURE,
+
+          color:
+            "#c3cdd2",
+
+          transparent:
+            true,
+
+          /*
+            Tăng rõ mây nhưng vẫn trong.
+          */
+
+          opacity:
+            .095 +
+            (
+              i % 3
+            ) *
+            .018,
+
+          depthWrite:
+            false
+        })
+      );
+
+
+    sprite.position.set(
+
+      (
+        p -
+        pieces * .5
+      ) * 2.35,
+
+      Math.sin(
+        p * 1.65 +
+        i
+      ) * .40,
+
+      0
+    );
+
+
+    const size =
+      6.5 +
+      (
+        p % 3
+      ) *
+      2.2;
+
+
+    sprite.scale.set(
+      size * 1.85,
+      size * .72,
+      1
+    );
+
+
+    cluster.add(
+      sprite
+    );
+  }
+
+
+  cluster.position.set(
+
+    (
+      i % 7 -
+      3
+    ) * 10.5,
+
+    10 +
+    (
+      i % 5
+    ) * 2.7,
+
+    -44 -
+    (
+      i % 6
+    ) * 7.5
+  );
+
+
+  cluster.rotation.z =
+    (
+      i % 3 -
+      1
+    ) *
+    .07;
+
+
+  cluster.userData = {
+
+    drift:
+      .35 +
+      (
+        i % 3
+      ) *
+      .08,
+
+    phase:
+      i * .73
+  };
+
+
+  WORLD.cloudGroup.add(
+    cluster
+  );
+}
+
+
+ENGINE.scene.add(
+  WORLD.cloudGroup
+);
+
+
+/* =========================================================
+   MIST
+========================================================= */
+
+function createMistTexture() {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+
+  canvas.width =
+    256;
+
+  canvas.height =
+    128;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  const gradient =
+    ctx.createRadialGradient(
+      128,
+      64,
+      0,
+      128,
+      64,
+      128
+    );
+
+
+  gradient.addColorStop(
+    0,
+    "rgba(255,255,255,.045)"
+  );
+
+
+  gradient.addColorStop(
+    .35,
+    "rgba(205,207,220,.025)"
+  );
+
+
+  gradient.addColorStop(
+    .72,
+    "rgba(180,185,205,.008)"
+  );
+
+
+  gradient.addColorStop(
+    1,
+    "rgba(180,185,205,0)"
+  );
+
+
+  ctx.fillStyle =
+    gradient;
+
+
+  ctx.fillRect(
+    0,
+    0,
+    256,
+    128
+  );
+
+
+  return new THREE.CanvasTexture(
+    canvas
+  );
+}
+
+
+const MIST_TEXTURE =
+  createMistTexture();
+
+
+WORLD.mistGroup =
+  new THREE.Group();
+
+
+const mistCount =
+  mobile
+    ? 6
+    : 9;
+
+
+for (
+  let i = 0;
+  i < mistCount;
+  i++
+) {
+
+  const sprite =
+    new THREE.Sprite(
+
+      new THREE.SpriteMaterial({
+
+        map:
+          MIST_TEXTURE,
+
+        color:
+          i % 2
+            ? "#919da6"
+            : "#a89d9d",
+
+        transparent:
+          true,
+
+        opacity:
+          .008 +
+          (
+            i % 4
+          ) *
+          .002,
+
+        depthWrite:
+          false
+      })
+    );
+
+
+  sprite.position.set(
+
+    (
+      i -
+      mistCount / 2
+    ) * 5.3,
+
+    .36 +
+    (
+      i % 3
+    ) *
+    .4,
+
+    -7 -
+    i * 2.7
+  );
+
+
+  sprite.scale.set(
+
+    18 +
+    (
+      i % 3
+    ) *
+    6,
+
+    6 +
+    (
+      i % 2
+    ) *
+    2,
+
+    1
+  );
+
+
+  sprite.userData = {
+
+    phase:
+      i * 1.28,
+
+    baseX:
+      sprite.position.x,
+
+    baseZ:
+      sprite.position.z,
+
+    speed:
+      .08 +
+      (
+        i % 3
+      ) *
+      .018
+  };
+
+
+  WORLD.mistGroup.add(
+    sprite
+  );
+}
+
+
+ENGINE.scene.add(
+  WORLD.mistGroup
+);
+
+
+/* =========================================================
+   CLOUD UPDATE
+========================================================= */
+
+function updateClouds(dt) {
+
+  for (
+    const cluster
+    of WORLD.cloudGroup.children
+  ) {
+
+    const data =
+      cluster.userData;
+
+
+    cluster.position.x +=
+      (
+        .008 +
+        STATE.windStrength *
+        .006
+      ) *
+      data.drift *
+      dt;
+
+
+    cluster.position.y +=
+      Math.sin(
+        STATE.time *
+        .018 +
+        data.phase
+      ) *
+      .001;
+
+
+    cluster.rotation.z +=
+      noise1D(
+        STATE.time *
+        .007 +
+        data.phase
+      ) *
+      .00003;
+
+
+    if (
+      cluster.position.x >
+      52
+    ) {
+
+      cluster.position.x =
+        -52;
+    }
+  }
+}
+
+
+/* =========================================================
+   MIST UPDATE
+========================================================= */
+
+function updateMist() {
+
+  for (
+    const sprite
+    of WORLD.mistGroup.children
+  ) {
+
+    const data =
+      sprite.userData;
+
+
+    const noise =
+      fbm(
+        STATE.time *
+        .045 +
+        data.phase
+      );
+
+
+    sprite.position.x =
+      data.baseX +
+      Math.sin(
+        STATE.time *
+        data.speed +
+        data.phase
+      ) *
+      1.5 +
+      noise *
+      1.3;
+
+
+    sprite.position.z =
+      data.baseZ +
+      Math.cos(
+        STATE.time *
+        .025 +
+        data.phase
+      ) *
+      .65;
+
+
+    sprite.position.y =
+      .32 +
+      Math.sin(
+        STATE.time *
+        .05 +
+        data.phase
+      ) *
+      .12;
+  }
+}
+
+
+/* =========================================================
+   PARTICLE UPDATE
+========================================================= */
+
+function updateParticleSystem(
+  system,
+  dt
+) {
+
+  const {
+    positions,
+    velocities,
+    phases,
+    count,
+    material,
+    type
+  } =
+    system;
+
+
+  for (
+    let i = 0;
+    i < count;
+    i++
+  ) {
+
+    const i3 =
+      i * 3;
+
+
+    const turbulence =
+      fbm(
+        STATE.time *
+        .12 +
+        phases[i]
+      );
+
+
+    velocities[i3] +=
+      WIND.vector.x *
+      .00055 *
+      dt;
+
+
+    velocities[i3 + 1] +=
+      turbulence *
+      .00002 *
+      dt;
+
+
+    velocities[i3 + 2] +=
+      WIND.vector.z *
+      .00055 *
+      dt;
+
+
+    const drag =
+      Math.exp(
+        -.16 * dt
+      );
+
+
+    velocities[i3] *=
+      drag;
+
+    velocities[i3 + 1] *=
+      drag;
+
+    velocities[i3 + 2] *=
+      drag;
+
+
+    positions[i3] +=
+      velocities[i3] *
+      dt *
+      60;
+
+    positions[i3 + 1] +=
+      velocities[i3 + 1] *
+      dt *
+      60;
+
+    positions[i3 + 2] +=
+      velocities[i3 + 2] *
+      dt *
+      60;
+
+
+    if (
+      positions[i3] > 20
+    ) {
+      positions[i3] = -20;
+    }
+
+    if (
+      positions[i3] < -20
+    ) {
+      positions[i3] = 20;
+    }
+
+    if (
+      positions[i3 + 1] > 16
+    ) {
+      positions[i3 + 1] = .3;
+    }
+
+    if (
+      positions[i3 + 1] < .15
+    ) {
+      positions[i3 + 1] = 14;
+    }
+
+    if (
+      positions[i3 + 2] > 35
+    ) {
+      positions[i3 + 2] = -35;
+    }
+
+    if (
+      positions[i3 + 2] < -35
+    ) {
+      positions[i3 + 2] = 35;
+    }
+  }
+
+
+  system.points
+    .geometry
+    .attributes
+    .position
+    .needsUpdate =
+    true;
+
+
+  material.opacity =
+    type === "dust"
+      ? .18
+      : .50 +
+        range(
+          STATE.progress,
+          .56,
+          1
+        ) *
+        .07;
+}
+
+
+/* =========================================================
+   VEGETATION
+========================================================= */
+
+function updateVegetation(dt) {
+
+  WORLD.stemGroup.rotation.x =
+    damp(
+      WORLD.stemGroup.rotation.x,
+      WIND.vector.z * .105,
+      2.7,
+      dt
+    );
+
+
+  WORLD.stemGroup.rotation.z =
+    damp(
+      WORLD.stemGroup.rotation.z,
+      -WIND.vector.x * .075,
+      2.7,
+      dt
+    );
+
+
+  for (
+    const leaf
+    of ROSE.leaves
+  ) {
+
+    const data =
+      leaf.userData;
+
+
+    const noise =
+      fbm(
+        STATE.time *
+        .22 +
+        data.phase
+      );
+
+
+    const movement =
+      STATE.windStrength *
+      data.influence *
+      (
+        .18 +
+        noise * .055
+      );
+
+
+    leaf.rotation.x =
+      damp(
+        leaf.rotation.x,
+        data.baseX +
+        WIND.vector.z *
+        movement,
+        data.stiffness,
+        dt
+      );
+
+
+    leaf.rotation.y =
+      damp(
+        leaf.rotation.y,
+        data.baseY +
+        WIND.vector.x *
+        movement *
+        .18,
+        data.stiffness,
+        dt
+      );
+
+
+    leaf.rotation.z =
+      damp(
+        leaf.rotation.z,
+        data.baseZ -
+        WIND.vector.x *
+        movement,
+        data.stiffness,
+        dt
+      );
+  }
+
+
+  for (
+    const leaf
+    of ROSE.canopyLeaves
+  ) {
+
+    const data =
+      leaf.userData;
+
+
+    const noise =
+      fbm(
+        STATE.time *
+        .12 +
+        data.phase
+      );
+
+
+    const sway =
+      STATE.windStrength *
+      data.influence *
+      (
+        .34 +
+        noise * .18
+      );
+
+
+    leaf.rotation.x =
+      damp(
+        leaf.rotation.x,
+        data.baseX +
+        WIND.vector.z *
+        sway,
+        data.stiffness,
+        dt
+      );
+
+
+    leaf.rotation.y =
+      damp(
+        leaf.rotation.y,
+        data.baseY +
+        WIND.vector.x *
+        sway *
+        .15,
+        data.stiffness,
+        dt
+      );
+
+
+    leaf.rotation.z =
+      damp(
+        leaf.rotation.z,
+        data.baseZ -
+        WIND.vector.x *
+        sway,
+        data.stiffness,
+        dt
+      );
+  }
+
+
+  for (
+    const thorn
+    of ROSE.thorns
+  ) {
+
+    thorn.rotation.y =
+      thorn.userData.baseY +
+      Math.sin(
+        STATE.time *
+        .14 +
+        thorn.userData.phase
+      ) *
+      .012;
+  }
+
+
+  for (
+    const grass
+    of WORLD.grass.children
+  ) {
+
+    const data =
+      grass.userData;
+
+
+    const noise =
+      fbm(
+        STATE.time *
+        .18 +
+        data.phase
+      );
+
+
+    const target =
+      data.baseRotation +
+      STATE.windStrength *
+      data.influence *
+      (
+        .6 +
+        noise * .15
+      );
+
+
+    grass.rotation.z =
+      damp(
+        grass.rotation.z,
+        target,
+        2.25,
+        dt
+      );
+  }
+}
+
+
+/* =========================================================
+   ROSE UPDATE
+========================================================= */
+
+function updateRose(
+  progress,
+  dt
+) {
+
+  const bloomStart =
+    .56;
+
+  const bloomEnd =
+    .94;
+
+
+  const bloom =
+    progress <= bloomStart
+
+      ? 0
+
+      : smoothstep(
+          (
+            progress -
+            bloomStart
+          ) /
+          (
+            bloomEnd -
+            bloomStart
+          )
+        );
+
+
+  STATE.bloomProgress =
+    bloom;
+
+
+  const budOpen =
+    range(
+      bloom,
+      .02,
+      .29
+    );
+
+
+  WORLD.bud.scale.x =
+    damp(
+      WORLD.bud.scale.x,
+      .88 -
+      budOpen * .07,
+      4,
+      dt
+    );
+
+
+  WORLD.bud.scale.y =
+    damp(
+      WORLD.bud.scale.y,
+      1.48 -
+      budOpen * 1.18,
+      3.6,
+      dt
+    );
+
+
+  WORLD.bud.scale.z =
+    damp(
+      WORLD.bud.scale.z,
+      .84 -
+      budOpen * .04,
+      4,
+      dt
+    );
+
+
+  WORLD.bud.material.emissiveIntensity =
+    .01 +
+    bloom * .028;
+
+
+  for (
+    const petal
+    of ROSE.petals
+  ) {
+
+    const data =
+      petal.userData;
+
+
+    const local =
+      clamp01(
+        (
+          bloom -
+          data.delay
+        ) /
+        data.duration
+      );
+
+
+    const opening =
+      easeOut(
+        local
+      );
+
+
+    const layer =
+      data.layer;
+
+
+    const spread =
+      [
+        1.00,
+        .76,
+        .54,
+        .32,
+        .19
+      ][layer];
+
+
+    const base =
+      data.basePosition;
+
+
+    const radius =
+      Math.hypot(
+        base.x,
+        base.z
+      );
+
+
+    let targetX =
+      base.x;
+
+
+    let targetZ =
+      base.z;
+
+
+    if (
+      radius > .0001
+    ) {
+
+      targetX +=
+        (
+          base.x /
+          radius
+        ) *
+        spread *
+        opening;
+
+
+      targetZ +=
+        (
+          base.z /
+          radius
+        ) *
+        spread *
+        opening;
+    }
+
+
+    const lift =
+      opening *
+      (
+        .17 +
+        layer * .026
+      );
+
+
+    petal.position.x =
+      damp(
+        petal.position.x,
+        targetX,
+        7,
+        dt
+      );
+
+
+    petal.position.y =
+      damp(
+        petal.position.y,
+        base.y + lift,
+        7,
+        dt
+      );
+
+
+    petal.position.z =
+      damp(
+        petal.position.z,
+        targetZ,
+        7,
+        dt
+      );
+
+
+    const closedTilt =
+      [
+        .74,
+        .63,
+        .53,
+        .46,
+        .40
+      ][layer];
+
+
+    const openedTilt =
+      [
+        .165,
+        .125,
+        .095,
+        .070,
+        .055
+      ][layer];
+
+
+    const windNoise =
+      fbm(
+        STATE.time *
+        .18 +
+        data.phase *
+        1.8
+      );
+
+
+    const gust =
+      STATE.windStrength *
+      data.influence;
+
+
+    data.windX =
+      damp(
+        data.windX,
+        WIND.vector.z *
+        gust *
+        (
+          .22 +
+          layer * .008
+        ),
+        data.stiffness,
+        dt
+      );
+
+
+    data.windY =
+      damp(
+        data.windY,
+        windNoise *
+        gust *
+        .024,
+        data.stiffness,
+        dt
+      );
+
+
+    data.windZ =
+      damp(
+        data.windZ,
+        -WIND.vector.x *
+        gust *
+        .18,
+        data.stiffness,
+        dt
+      );
+
+
+    const living =
+      Math.sin(
+        STATE.time *
+        (
+          .18 +
+          layer * .015
+        ) +
+        data.phase
+      );
+
+
+    petal.rotation.x =
+      damp(
+        petal.rotation.x,
+
+        THREE.MathUtils.lerp(
+          closedTilt,
+          openedTilt,
+          opening
+        ) +
+        living * .008 +
+        data.windX,
+
+        4.6,
+
+        dt
+      );
+
+
+    petal.rotation.y =
+      damp(
+        petal.rotation.y,
+        data.baseRotation.y +
+        data.windZ,
+        3.8,
+        dt
+      );
+
+
+    petal.rotation.z =
+      damp(
+        petal.rotation.z,
+        data.baseRotation.z +
+        data.windY,
+        4.4,
+        dt
+      );
+
+
+    const breathing =
+      1 +
+      Math.sin(
+        STATE.time *
+        .27 +
+        data.phase
+      ) *
+      .006;
+
+
+    const puff =
+      THREE.MathUtils.lerp(
+        .96,
+        1.01,
+        opening
+      );
+
+
+    petal.scale.x =
+      damp(
+        petal.scale.x,
+        data.baseScale.x *
+        breathing *
+        puff,
+        4.4,
+        dt
+      );
+
+
+    petal.scale.y =
+      damp(
+        petal.scale.y,
+        data.baseScale.y *
+        breathing *
+        puff,
+        4.4,
+        dt
+      );
+
+
+    petal.material.emissiveIntensity =
+      .004 +
+      bloom *
+      (
+        .006 +
+        layer * .002
+      );
+  }
+
+
+  const coreProgress =
+    range(
+      bloom,
+      .58,
+      .96
+    );
+
+
+  WORLD.core.scale.setScalar(
+    THREE.MathUtils.lerp(
+      .46,
+      1.02,
+      coreProgress
+    )
+  );
+
+
+  WORLD.core.rotation.y +=
+    dt *
+    (
+      .018 +
+      coreProgress *
+      .009
+    );
+
+
+  if (
+    WORLD.core.children[0]?.material
+  ) {
+
+    WORLD.core
+      .children[0]
+      .material
+      .emissiveIntensity =
+      .015 +
+      bloom * .045;
+  }
+
+
+  const sepalOpen =
+    range(
+      bloom,
+      .10,
+      .80
+    );
+
+
+  for (
+    const sepal
+    of ROSE.sepals
+  ) {
+
+    sepal.rotation.x =
+      THREE.MathUtils.lerp(
+        -.35,
+        -.58,
+        sepalOpen
+      );
+  }
+
+
+  for (
+    const drop
+    of ROSE.dew
+  ) {
+
+    drop.material.opacity =
+      .40 +
+      Math.sin(
+        STATE.time *
+        .68 +
+        drop.userData.phase
+      ) *
+      .045;
+  }
+
+
+  if (
+    bloom > .88
+  ) {
+
+    WORLD.rose.position.y =
+      Math.sin(
+        STATE.time * .37
+      ) *
+      .0018;
+
+
+    WORLD.rose.rotation.z =
+      Math.sin(
+        STATE.time * .21
+      ) *
+      .005;
+
+  } else {
+
+    WORLD.rose.position.y =
+      0;
+
+    WORLD.rose.rotation.z =
+      0;
+  }
+}
+
+
+/* =========================================================
+   BUTTERFLY
+========================================================= */
+
+function updateButterfly(dt) {
+
+  BUTTERFLY.phase +=
+    dt;
+
+
+  const visible =
+    range(
+      STATE.progress,
+      .66,
+      .88
+    );
+
+
+  const flap =
+    Math.sin(
+      BUTTERFLY.phase *
+      5
+    ) *
+    .42 *
+    visible;
+
+
+  BUTTERFLY.leftWing.rotation.y =
+    -.18 -
+    flap;
+
+
+  BUTTERFLY.rightWing.rotation.y =
+    .18 +
+    flap;
+
+
+  BUTTERFLY.group.position.y =
+    BUTTERFLY.baseY +
+    Math.sin(
+      BUTTERFLY.phase *
+      .75
+    ) *
+    .008 *
+    visible;
+
+
+  BUTTERFLY.group.rotation.z =
+    -.05 +
+    Math.sin(
+      BUTTERFLY.phase *
+      .33
+    ) *
+    .008 *
+    visible;
+}
+
+
+/* =========================================================
+   LIGHTING
+========================================================= */
+
+function updateLighting(
+  progress
+) {
+
+  const warm =
+    range(
+      progress,
+      .20,
+      1
+    );
+
+
+  const climax =
+    range(
+      progress,
+      .70,
+      1
+    );
+
+
+  WORLD.keyLight.intensity =
+    THREE.MathUtils.lerp(
+      1.60,
+      2.08,
+      warm
+    );
+
+
+  WORLD.fillLight.intensity =
+    THREE.MathUtils.lerp(
+      .34,
+      .46,
+      warm
+    );
+
+
+  WORLD.rimLight.intensity =
+    THREE.MathUtils.lerp(
+      4.2,
+      7.0,
+      climax
+    );
+
+
+  WORLD.bounceLight.intensity =
+    THREE.MathUtils.lerp(
+      .62,
+      1.0,
+      climax
+    );
+
+
+  ENGINE.renderer.toneMappingExposure =
+    THREE.MathUtils.lerp(
+      .88,
+      .96,
+      warm
+    );
+
+
+  WORLD.sunGlow.material.opacity =
+    .035 +
+    warm *
+    .045;
+
+
+  if (
+    ENGINE.bloomPass
+  ) {
+
+    const bloomLevel =
+      range(
+        progress,
+        .58,
+        1
+      );
+
+
+    ENGINE.bloomPass.strength =
+      QUALITY.bloomStrength +
+      bloomLevel *
+      .055;
+
+
+    ENGINE.bloomPass.radius =
+      .34 +
+      bloomLevel *
+      .06;
+
+
+    ENGINE.bloomPass.threshold =
+      .82 -
+      bloomLevel *
+      .04;
+  }
+}
+
+
+/* =========================================================
+   CAMERA
+   FREE LOOK:
+   - yaw  : 360°+
+   - pitch: lên/xuống
+   - roll : Q/E
+========================================================= */
+
+function updateCamera(dt) {
+
+  const freeStart =
+    .78;
+
+
+  const freeLook =
+    range(
+      STATE.cameraProgress,
+      freeStart,
+      1
+    );
+
+
+  STATE.freeLookAmount =
+    freeLook;
+
+
+  STATE.freeLook =
+    freeLook >
+    .015;
+
+
+  /*
+    Cinematic camera trước free-look.
+  */
+
+  sampleCamera(
+    STATE.cameraProgress
+  );
+
+
+  if (
+    freeLook < .42
+  ) {
+
+    STATE.cameraPosition.x +=
+      STATE.pointer.x *
+      (
+        STATE.cameraProgress <
+        .72
+          ? .24
+          : .08
+      );
+
+
+    STATE.cameraPosition.y -=
+      STATE.pointer.y *
+      .10;
+  }
+
+
+  /*
+    -----------------------------------------------------------
+    FREE LOOK
+    -----------------------------------------------------------
+
+    Mouse X:
+      yaw
+
+    Mouse Y:
+      pitch
+
+    Q/E:
+      roll
+  */
+
+  if (
+    freeLook > 0
+  ) {
+
+    /*
+      YAW được giữ liên tục,
+      không clamp +/- pi.
+      Vì vậy camera có thể xoay
+      360°, 720°... quanh hoa.
+    */
+
+    const yawInput =
+      STATE.pointerTarget.x *
+      .028;
+
+
+    STATE.targetFreeLookYaw +=
+      yawInput;
+
+
+    /*
+      Pitch vẫn giới hạn để camera không
+      bị lộn ngược ngoài ý muốn.
+    */
+
+    STATE.targetFreeLookPitch =
+      THREE.MathUtils.clamp(
+
+        -STATE.pointerTarget.y *
+        .68,
+
+        -Math.PI * .42,
+
+        Math.PI * .42
+      );
+
+
+    /*
+      Roll.
+      Q = xoay trái
+      E = xoay phải
+    */
+
+    const rollSpeed =
+      .82;
+
+
+    if (
+      KEYBOARD.q
+    ) {
+
+      STATE.targetFreeLookRoll -=
+        rollSpeed *
+        dt;
+    }
+
+
+    if (
+      KEYBOARD.e
+    ) {
+
+      STATE.targetFreeLookRoll +=
+        rollSpeed *
+        dt;
+    }
+
+
+    /*
+      Cho roll về 0 khi không bấm.
+      Nhờ đó người dùng không bị mắc
+      camera nghiêng vô hạn.
+    */
+
+    if (
+      !KEYBOARD.q &&
+      !KEYBOARD.e
+    ) {
+
+      STATE.targetFreeLookRoll =
+        THREE.MathUtils.damp(
+          STATE.targetFreeLookRoll,
+          0,
+          2.8,
+          dt
+        );
+    }
+
+
+    STATE.freeLookYaw =
+      damp(
+        STATE.freeLookYaw,
+        STATE.targetFreeLookYaw,
+        4.4,
+        dt
+      );
+
+
+    STATE.freeLookPitch =
+      damp(
+        STATE.freeLookPitch,
+        STATE.targetFreeLookPitch,
+        5.8,
+        dt
+      );
+
+
+    STATE.freeLookRoll =
+      damp(
+        STATE.freeLookRoll,
+        STATE.targetFreeLookRoll,
+        5.0,
+        dt
+      );
+
+
+    /*
+      ---------------------------------------------------------
+      CENTER
+      ---------------------------------------------------------
+    */
+
+    STATE.freeLookCenter.set(
+      0,
+      THREE.MathUtils.lerp(
+        3.55,
+        4.45,
+        freeLook
+      ),
+      0
+    );
+
+
+    const distance =
+      THREE.MathUtils.lerp(
+        4.55,
+        4.05,
+        freeLook
+      );
+
+
+    STATE.freeLookDistance =
+      distance;
+
+
+    const cosPitch =
+      Math.cos(
+        STATE.freeLookPitch
+      );
+
+
+    const sinPitch =
+      Math.sin(
+        STATE.freeLookPitch
+      );
+
+
+    const sinYaw =
+      Math.sin(
+        STATE.freeLookYaw
+      );
+
+
+    const cosYaw =
+      Math.cos(
+        STATE.freeLookYaw
+      );
+
+
+    /*
+      Vị trí camera trên sphere.
+    */
+
+    STATE.freeLookPosition.set(
+
+      STATE.freeLookCenter.x +
+      sinYaw *
+      cosPitch *
+      distance,
+
+      STATE.freeLookCenter.y +
+      sinPitch *
+      distance,
+
+      STATE.freeLookCenter.z +
+      cosYaw *
+      cosPitch *
+      distance
+    );
+
+
+    /*
+      Khi free-look hoàn toàn,
+      camera không còn bị khóa vào
+      một shot cố định.
+    */
+
+    STATE.cameraPosition.lerp(
+      STATE.freeLookPosition,
+      freeLook
+    );
+
+
+    STATE.freeLookTarget.copy(
+      STATE.freeLookCenter
+    );
+
+
+    STATE.cameraLook.lerp(
+      STATE.freeLookTarget,
+      freeLook
+    );
+  }
+
+
+  /*
+    -----------------------------------------------------------
+    POSITION DAMP
+    -----------------------------------------------------------
+  */
+
+  ENGINE.camera.position.x =
+    damp(
+      ENGINE.camera.position.x,
+      STATE.cameraPosition.x,
+      freeLook > .55
+        ? 5.2
+        : 3.25,
+      dt
+    );
+
+
+  ENGINE.camera.position.y =
+    damp(
+      ENGINE.camera.position.y,
+      STATE.cameraPosition.y,
+      freeLook > .55
+        ? 5.2
+        : 3.25,
+      dt
+    );
+
+
+  ENGINE.camera.position.z =
+    damp(
+      ENGINE.camera.position.z,
+      STATE.cameraPosition.z,
+      freeLook > .55
+        ? 4.7
+        : 2.55,
+      dt
+    );
+
+
+  /*
+    -----------------------------------------------------------
+    LOOK
+    -----------------------------------------------------------
+  */
+
+  STATE.smoothLook.x =
+    damp(
+      STATE.smoothLook.x,
+      STATE.cameraLook.x,
+      freeLook > .55
+        ? 7
+        : 4.5,
+      dt
+    );
+
+
+  STATE.smoothLook.y =
+    damp(
+      STATE.smoothLook.y,
+      STATE.cameraLook.y,
+      freeLook > .55
+        ? 7
+        : 4.5,
+      dt
+    );
+
+
+  STATE.smoothLook.z =
+    damp(
+      STATE.smoothLook.z,
+      STATE.cameraLook.z,
+      freeLook > .55
+        ? 7
+        : 4.5,
+      dt
+    );
+
+
+  /*
+    -----------------------------------------------------------
+    ROLL
+    -----------------------------------------------------------
+  */
+
+  ENGINE.camera.rotation.z =
+    damp(
+      ENGINE.camera.rotation.z,
+      freeLook
+        ? STATE.freeLookRoll
+        : 0,
+      6,
+      dt
+    );
+
+
+  ENGINE.camera.lookAt(
+    STATE.smoothLook
+  );
+
+
+  /*
+    lookAt() có thể reset orientation roll.
+    Vì vậy apply quaternion roll sau lookAt.
+  */
+
+  if (
+    freeLook > .01
+  ) {
+
+    const rollQuaternion =
+      new THREE.Quaternion();
+
+
+    const forward =
+      new THREE.Vector3();
+
+
+    ENGINE.camera.getWorldDirection(
+      forward
+    );
+
+
+    rollQuaternion.setFromAxisAngle(
+      forward.normalize(),
+      STATE.freeLookRoll
+    );
+
+
+    ENGINE.camera.quaternion.multiply(
+      rollQuaternion
+    );
+  }
+
+
+  /*
+    FOV
+  */
+
+  const macro =
+    range(
+      STATE.cameraProgress,
+      .42,
+      .92
+    );
+
+
+  const targetFov =
+    freeLook > .58
+
+      ? 47
+
+      : 43 -
+        macro *
+        8.6;
+
+
+  ENGINE.camera.fov =
+    damp(
+      ENGINE.camera.fov,
+      targetFov,
+      4.2,
+      dt
+    );
+
+
+  ENGINE.camera.updateProjectionMatrix();
+
+
+  /*
+    -----------------------------------------------------------
+    DOF nhẹ
+    -----------------------------------------------------------
+  */
+
+  if (
+    ENGINE.bokehPass
+  ) {
+
+    try {
+
+      if (
+        ENGINE.bokehPass
+          .uniforms?.focus
+      ) {
+
+        ENGINE.bokehPass
+          .uniforms
+          .focus
+          .value =
+
+          THREE.MathUtils.lerp(
+            26,
+            4.35,
+            smooth(
+              STATE.cameraProgress
+            )
+          );
+      }
+
+
+      if (
+        ENGINE.bokehPass
+          .uniforms?.aperture
+      ) {
+
+        ENGINE.bokehPass
+          .uniforms
+          .aperture
+          .value =
+
+          THREE.MathUtils.lerp(
+            .000002,
+            .000028,
+            range(
+              STATE.cameraProgress,
+              .52,
+              1
+            )
+          );
+      }
+
+    } catch (error) {
+
+      console.warn(
+        "[BLOOM] Bokeh disabled:",
+        error
+      );
+
+      ENGINE.bokehPass =
+        null;
+    }
+  }
+}
+
+
+/* =========================================================
+   STATE
+========================================================= */
+
+function updateState(dt) {
+
+  STATE.progress =
+    damp(
+      STATE.progress,
+      STATE.targetProgress,
+      REDUCED_MOTION
+        ? 5.5
+        : 2.8,
+      dt
+    );
+
+
+  STATE.cameraProgress =
+    smoothstep(
+      STATE.progress
+    );
+}
+
+
+/* =========================================================
+   AUTOPLAY
+========================================================= */
+
+function updateAutoplay() {
+
+  if (
+    !STATE.autoPlay
+  ) {
+    return;
+  }
+
+
+  const idle =
+    performance.now() -
+    STATE.lastInteraction;
+
+
+  if (
+    idle < 2400
+  ) {
+    return;
+  }
+
+
+  if (
+    STATE.progress < .998
+  ) {
+
+    STATE.targetProgress =
+      clamp01(
+        STATE.targetProgress +
+        .000075
+      );
+  }
+}
+
+
+/* =========================================================
+   UI
+========================================================= */
+
+function updateUI() {
+
+  const percent =
+    Math.round(
+      STATE.progress *
+      100
+    );
+
+
+  DOM.progress.textContent =
+    String(
+      percent
+    ).padStart(
+      2,
+      "0"
+    ) +
+    "%";
+
+
+  if (
+    STATE.freeLook
+  ) {
+
+    DOM.hint.textContent =
+      "mouse • 360° explore • Q / E roll";
+
+    DOM.hint.classList.add(
+      "free"
+    );
+
+    DOM.hint.classList.remove(
+      "hidden"
+    );
+
+  } else {
+
+    DOM.hint.textContent =
+      "scroll into the garden";
+
+    DOM.hint.classList.remove(
+      "free"
+    );
+
+    DOM.hint.classList.toggle(
+      "hidden",
+      STATE.progress > .035
+    );
+  }
+}
+
+
+/* =========================================================
+   SCROLL
+========================================================= */
+
+function readScroll() {
+
+  const maxScroll =
+    document.documentElement
+      .scrollHeight -
+    window.innerHeight;
+
+
+  if (
+    maxScroll <= 0
+  ) {
+    return;
+  }
+
+
+  STATE.targetProgress =
+    clamp01(
+      window.scrollY /
+      maxScroll
+    );
+
+
+  STATE.autoPlay =
+    false;
+
+
+  STATE.lastInteraction =
+    performance.now();
+}
+
+
+window.addEventListener(
+  "scroll",
+  readScroll,
+  {
+    passive: true
+  }
+);
+
+
+/* =========================================================
+   KEYBOARD
+========================================================= */
+
+const KEYBOARD = {
+
+  q:
+    false,
+
+  e:
+    false
+};
+
+
+window.addEventListener(
+  "keydown",
+  event => {
+
+    const key =
+      event.key.toLowerCase();
+
+
+    if (
+      key === "q"
+    ) {
+
+      KEYBOARD.q =
+        true;
+
+      STATE.lastInteraction =
+        performance.now();
+    }
+
+
+    if (
+      key === "e"
+    ) {
+
+      KEYBOARD.e =
+        true;
+
+      STATE.lastInteraction =
+        performance.now();
+    }
+  }
+);
+
+
+window.addEventListener(
+  "keyup",
+  event => {
+
+    const key =
+      event.key.toLowerCase();
+
+
+    if (
+      key === "q"
+    ) {
+      KEYBOARD.q =
+        false;
+    }
+
+
+    if (
+      key === "e"
+    ) {
+      KEYBOARD.e =
+        false;
+    }
+  }
+);
+
+
+/* =========================================================
+   POINTER
+========================================================= */
+
+window.addEventListener(
+  "pointermove",
+  event => {
+
+    /*
+      X chỉ làm tốc độ yaw.
+      Do yaw tích lũy nên không còn giới hạn
+      trong [-1,+1] → quay liên tục 360°.
+    */
+
+    STATE.pointerTarget.set(
+
+      event.clientX /
+      window.innerWidth *
+      2 -
+      1,
+
+      event.clientY /
+      window.innerHeight *
+      2 -
+      1
+    );
+
+
+    STATE.lastInteraction =
+      performance.now();
+
+
+    /*
+      Micro orbit trước free-look.
+    */
+
+    if (
+      STATE.mouseDown
+    ) {
+
+      const dx =
+        event.clientX -
+        STATE.pointerDown.x;
+
+
+      const dy =
+        event.clientY -
+        STATE.pointerDown.y;
+
+
+      STATE.orbit.x =
+        THREE.MathUtils.clamp(
+          STATE.orbit.x +
+          dx *
+          .00020,
+          -.10,
+          .10
+        );
+
+
+      STATE.orbit.y =
+        THREE.MathUtils.clamp(
+          STATE.orbit.y +
+          dy *
+          .00012,
+          -.06,
+          .06
+        );
+
+
+      STATE.pointerDown.set(
+        event.clientX,
+        event.clientY
+      );
+    }
+
+  },
+  {
+    passive: true
+  }
+);
+
+
+window.addEventListener(
+  "pointerdown",
+  event => {
+
+    STATE.mouseDown =
+      event.pointerType ===
+      "mouse";
+
+
+    STATE.pointerDown.set(
+      event.clientX,
+      event.clientY
+    );
+
+
+    STATE.lastInteraction =
+      performance.now();
+  },
+  {
+    passive: true
+  }
+);
+
+
+window.addEventListener(
+  "pointerup",
+  () => {
+
+    STATE.mouseDown =
+      false;
+
+  },
+  {
+    passive: true
+  }
+);
+
+
+window.addEventListener(
+  "pointercancel",
+  () => {
+
+    STATE.mouseDown =
+      false;
+
+  },
+  {
+    passive: true
+  }
+);
+
+
+window.addEventListener(
+  "wheel",
+  () => {
+
+    STATE.autoPlay =
+      false;
+
+    STATE.lastInteraction =
+      performance.now();
+
+  },
+  {
+    passive: true
+  }
+);
+
+
+/* =========================================================
+   POST PROCESSING
+========================================================= */
+
+setLoading(
+  .84,
+  "building controlled optics"
+);
+
+
+try {
+
+  ENGINE.composer =
+    new EffectComposer(
+      ENGINE.renderer
+    );
+
+
+  ENGINE.renderPass =
+    new RenderPass(
+      ENGINE.scene,
+      ENGINE.camera
+    );
+
+
+  ENGINE.composer.addPass(
+    ENGINE.renderPass
+  );
+
+
+  /*
+    Bloom vừa đủ để bắt highlight.
+  */
+
+  ENGINE.bloomPass =
+    new UnrealBloomPass(
+
+      new THREE.Vector2(
+
+        window.innerWidth *
+        QUALITY.bloomResolution,
+
+        window.innerHeight *
+        QUALITY.bloomResolution
+      ),
+
+      QUALITY.bloomStrength,
+
+      .34,
+
+      .82
+    );
+
+
+  ENGINE.composer.addPass(
+    ENGINE.bloomPass
+  );
+
+
+  /*
+    DOF nhẹ.
+  */
+
+  if (
+    QUALITY.bokeh &&
+    !REDUCED_MOTION
+  ) {
+
+    ENGINE.bokehPass =
+      new BokehPass(
+
+        ENGINE.scene,
+
+        ENGINE.camera,
+
+        {
+
+          focus:
+            26,
+
+          aperture:
+            .000004,
+
+          maxblur:
+            .006
+        }
+      );
+
+
+    ENGINE.composer.addPass(
+      ENGINE.bokehPass
+    );
+  }
+
+
+  ENGINE.outputPass =
+    new OutputPass();
+
+
+  ENGINE.composer.addPass(
+    ENGINE.outputPass
+  );
+
+
+  ENGINE.composer.setPixelRatio(
+    QUALITY.dpr
+  );
+
+
+  ENGINE.composer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  );
+
+} catch (error) {
+
+  console.error(
+    "[BLOOM] Post-processing:",
+    error
+  );
+
+
+  ENGINE.composer =
+    null;
+
+  ENGINE.bloomPass =
+    null;
+
+  ENGINE.bokehPass =
+    null;
+
+  ENGINE.outputPass =
+    null;
+}
+
+
+/* =========================================================
+   RESIZE
+========================================================= */
+
+function resize() {
+
+  const width =
+    window.innerWidth;
+
+
+  const height =
+    window.innerHeight;
+
+
+  ENGINE.camera.aspect =
+    width /
+    height;
+
+
+  ENGINE.camera.updateProjectionMatrix();
+
+
+  ENGINE.renderer.setPixelRatio(
+    QUALITY.dpr
+  );
+
+
+  ENGINE.renderer.setSize(
+    width,
+    height,
+    false
+  );
+
+
+  if (
+    ENGINE.composer
+  ) {
+
+    ENGINE.composer.setPixelRatio(
+      QUALITY.dpr
+    );
+
+
+    ENGINE.composer.setSize(
+      width,
+      height
+    );
+  }
+}
+
+
+window.addEventListener(
+  "resize",
+  resize
+);
+
+
+resize();
+
+
+/* =========================================================
+   RESET
+========================================================= */
+
+function resetExperience() {
+
+  window.scrollTo({
+
+    top:
+      0,
+
+    behavior:
+      "auto"
+  });
+
+
+  STATE.progress =
+    0;
+
+
+  STATE.targetProgress =
+    0;
+
+
+  STATE.cameraProgress =
+    0;
+
+
+  STATE.bloomProgress =
+    0;
+
+
+  STATE.autoPlay =
+    false;
+
+
+  STATE.pointer.set(
+    0,
+    0
+  );
+
+
+  STATE.pointerTarget.set(
+    0,
+    0
+  );
+
+
+  STATE.orbit.set(
+    0,
+    0
+  );
+
+
+  STATE.freeLook =
+    false;
+
+
+  STATE.freeLookAmount =
+    0;
+
+
+  STATE.freeLookYaw =
+    0;
+
+
+  STATE.freeLookPitch =
+    0;
+
+
+  STATE.freeLookRoll =
+    0;
+
+
+  STATE.targetFreeLookYaw =
+    0;
+
+
+  STATE.targetFreeLookPitch =
+    0;
+
+
+  STATE.targetFreeLookRoll =
+    0;
+
+
+  KEYBOARD.q =
+    false;
+
+  KEYBOARD.e =
+    false;
+
+
+  STATE.lastInteraction =
+    performance.now();
+
+
+  WORLD.bud.scale.set(
+    .88,
+    1.48,
+    .84
+  );
+
+
+  WORLD.core.scale.setScalar(
+    .46
+  );
+
+
+  WORLD.rose.position.y =
+    0;
+
+
+  WORLD.rose.rotation.z =
+    0;
+
+
+  for (
+    const petal
+    of ROSE.petals
+  ) {
+
+    const data =
+      petal.userData;
+
+
+    petal.position.copy(
+      data.basePosition
+    );
+
+
+    petal.rotation.copy(
+      data.baseRotation
+    );
+
+
+    petal.scale.copy(
+      data.baseScale
+    );
+
+
+    data.windX =
+      0;
+
+    data.windY =
+      0;
+
+    data.windZ =
+      0;
+  }
+
+
+  ENGINE.camera.rotation.z =
+    0;
+
+
+  if (
+    ENGINE.bloomPass
+  ) {
+
+    ENGINE.bloomPass.strength =
+      QUALITY.bloomStrength;
+
+    ENGINE.bloomPass.radius =
+      .34;
+
+    ENGINE.bloomPass.threshold =
+      .82;
+  }
+}
+
+
+DOM.replay.addEventListener(
+  "click",
+  resetExperience
+);
+
+
+window.addEventListener(
+  "keydown",
+  event => {
+
+    if (
+      event.key.toLowerCase() === "r"
+    ) {
+
+      resetExperience();
+    }
+  }
+);
+
+
+/* =========================================================
+   WARMUP
+========================================================= */
+
+setLoading(
+  .93,
+  "warming detailed rose shaders"
+);
+
+
+await new Promise(
+  resolve =>
+    requestAnimationFrame(
+      resolve
+    )
+);
+
+
+try {
+
+  ENGINE.renderer.compile(
+    ENGINE.scene,
+    ENGINE.camera
+  );
+
+} catch (error) {
+
+  console.warn(
+    "[BLOOM] Shader warmup:",
+    error
+  );
+}
+
+
+setLoading(
+  1,
+  "the garden is awake"
+);
+
+
+await new Promise(
+  resolve =>
+    setTimeout(
+      resolve,
+      500
+    )
+);
+
+
+finishLoading();
+
+
+/* =========================================================
+   FRAME
+========================================================= */
+
+const clock =
+  new THREE.Clock();
+
+
+let composerFailed =
+  false;
+
+
+function frame() {
+
+  requestAnimationFrame(
+    frame
+  );
+
+
+  const dt =
+    Math.min(
+      clock.getDelta(),
+      .035
+    );
+
+
+  STATE.time +=
+    dt;
+
+
+  try {
+
+    updateAutoplay();
+
+
+    STATE.pointer.x =
+      damp(
+        STATE.pointer.x,
+        STATE.pointerTarget.x,
+        4.2,
+        dt
+      );
+
+
+    STATE.pointer.y =
+      damp(
+        STATE.pointer.y,
+        STATE.pointerTarget.y,
+        4.2,
+        dt
+      );
+
+
+    updateState(dt);
+
+    updateWind(dt);
+
+    updateSky(
+      STATE.progress,
+      dt
+    );
+
+    updateClouds(dt);
+
+    updateRose(
+      STATE.progress,
+      dt
+    );
+
+    updateButterfly(dt);
+
+    updateVegetation(dt);
+
+    updateParticleSystem(
+      WORLD.pollen,
+      dt
+    );
+
+    updateParticleSystem(
+      WORLD.dust,
+      dt
+    );
+
+    updateMist();
+
+    updateLighting(
+      STATE.progress
+    );
+
+    updateCamera(dt);
+
+    updateUI();
+
+
+    if (
+      ENGINE.composer &&
+      !composerFailed
+    ) {
+
+      try {
+
+        ENGINE.composer.render();
+
+      } catch (error) {
+
+        console.error(
+          "[BLOOM] Composer render failed:",
+          error
+        );
+
+
+        composerFailed =
+          true;
+
+
+        ENGINE.renderer.render(
+          ENGINE.scene,
+          ENGINE.camera
+        );
+      }
+
+    } else {
+
+      ENGINE.renderer.render(
+        ENGINE.scene,
+        ENGINE.camera
+      );
+    }
+
+  } catch (error) {
+
+    console.error(
+      "[BLOOM] Runtime:",
+      error
+    );
+
+
+    try {
+
+      ENGINE.renderer.render(
+        ENGINE.scene,
+        ENGINE.camera
+      );
+
+    } catch (renderError) {
+
+      console.error(
+        "[BLOOM] Final render:",
+        renderError
+      );
+    }
+  }
+}
+
+
+frame();
+
+</script>
+
+</body>
+</html>
