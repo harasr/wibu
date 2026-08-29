@@ -317,7 +317,6 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
             <button type="button" class="btn-auth" id="btn-login-local" style="flex:1;min-height:34px;font-size:11px">Đăng nhập</button>
             <button type="button" class="btn-auth" id="btn-register-local" style="flex:1;min-height:34px;font-size:11px;background:rgba(212,175,55,.15);border-color:rgba(212,175,55,.35)">Tạo TK</button>
           </div>
-          <p class="auth-guest">Admin <b>harasr</b> không cần mật khẩu · Hoặc chơi ẩn danh</p>
         </div>
         <div class="auth-err" id="auth-err"></div>
       </div>
@@ -504,7 +503,8 @@ const SEASON_DATA = {
   ];
   const ADMIN_BONUS_PTS = 9e99;
   let adminPtsGranted = false;
-  const ADMIN_NAME = "harasradmin"; // normalized (no spaces)
+  const ADMIN_ACC = "harasradmin"; // duy nhất 1 tài khoản Admin (normalizeName bỏ khoảng trắng)
+  const ADMIN_PASS = "123456";
   let totalPts = 0;
   let skinId = 0;
   let ownedSkins = [0]; // always own Classic
@@ -558,20 +558,15 @@ const SEASON_DATA = {
   function normalizeName(s) {
     return String(s || "").trim().toLowerCase().replace(/\s+/g, "");
   }
-  function isAdminName(s) {
+  function isReservedName(s) {
     const n = normalizeName(s);
-    return n === ADMIN_NAME || n === "harasr" || n === "harasradmin";
+    return n === ADMIN_ACC || n === "harasr";
   }
   function ownsSkin(id) {
     return isAdmin || ownedSkins.indexOf(id) >= 0;
   }
   function applyProgression(nameOverride) {
-    const n = nameOverride || lastName || "";
-    if (isAdminName(n)) {
-      adminUnlocked = true;
-      renameTokens = Infinity;
-    }
-    isAdmin = adminUnlocked || isAdminName(n);
+    isAdmin = adminUnlocked; // chỉ ai đăng nhập đúng acc Admin mới có quyền
     if (isAdmin) {
       ownedSkins = SKIN_TIERS.map(s => s.id);
       if (skinId < 0 || skinId >= SKIN_TIERS.length) skinId = SKIN_TIERS.length - 1;
@@ -603,9 +598,8 @@ const SEASON_DATA = {
     if (!n) return { ok: false, msg: "Tên trống" };
     if (n === lastName) return { ok: false, msg: "Trùng tên cũ" };
     if (Number.isFinite(renameTokens) && renameTokens <= 0 && !isAdmin) return { ok: false, msg: "Hết thẻ đổi tên" };
+    if (isReservedName(n)) return { ok: false, msg: "Tên này dành riêng cho Admin" };
     const oldName = lastName;
-    // Admin check before rename (name-based unlock)
-    if (isAdminName(n)) adminUnlocked = true;
     lastName = n;
     if (!isAdmin && Number.isFinite(renameTokens)) renameTokens = Math.max(0, renameTokens - 1);
     applyProgression(n);
@@ -722,8 +716,36 @@ const SEASON_DATA = {
 
   // ===== LOCAL ACCOUNT AUTH (username + password) =====
   const ACC_STORE = "tungtung_accounts_v1";
-  const ADMIN_ACC = "harasr"; // no password required
   let localLoggedIn = false;
+
+  // Chỉ duy nhất 1 acc Admin: harasradmin / 123456 — acc khác bị tước cờ admin
+  function ensureAdminAccount() {
+    const map = loadAccounts();
+    let changed = false;
+    for (const k of Object.keys(map)) {
+      if (k !== ADMIN_ACC && map[k] && map[k].adminUnlocked) { map[k].adminUnlocked = false; changed = true; }
+    }
+    if (!map[ADMIN_ACC]) {
+      map[ADMIN_ACC] = {
+        name: ADMIN_ACC,
+        hash: simpleHash(ADMIN_PASS + ":" + ADMIN_ACC),
+        playerId: "admin_" + ADMIN_ACC,
+        totalPts: 0,
+        ownedSkins: [0],
+        skinId: 0,
+        best: 0,
+        adminUnlocked: true,
+        created: Date.now()
+      };
+      changed = true;
+    } else {
+      // luôn đảm bảo acc Admin đúng mật khẩu chuẩn và giữ quyền
+      map[ADMIN_ACC].hash = simpleHash(ADMIN_PASS + ":" + ADMIN_ACC);
+      map[ADMIN_ACC].adminUnlocked = true;
+      changed = true;
+    }
+    if (changed) saveAccounts(map);
+  }
 
   function loadAccounts() {
     try {
@@ -775,20 +797,7 @@ const SEASON_DATA = {
     const pass = (pEl && pEl.value || "");
     if (!user) { showAuthErr("Nhập tên tài khoản"); return; }
     const norm = normalizeName(user);
-    // Admin shortcut: harasr / harasradmin — no password
-    if (norm === ADMIN_ACC || isAdminName(user)) {
-      lastName = user.slice(0, 16);
-      adminUnlocked = true;
-      applyProgression(lastName);
-      localLoggedIn = true;
-      playerId = "admin_" + norm;
-      persistLocal();
-      showAuthErr("");
-      updateAuthUI();
-      updateProgressUI();
-      if (audio.point) audio.point();
-      return;
-    }
+    ensureAdminAccount();
     const map = loadAccounts();
     const rec = map[norm];
     if (!rec) { showAuthErr("Tài khoản không tồn tại — bấm Tạo TK"); return; }
@@ -805,8 +814,9 @@ const SEASON_DATA = {
       ownedSkins = [...new Set([0, ...rec.ownedSkins.map(n => Math.floor(+n)).filter(n => n >= 0)])];
     }
     if (typeof rec.skinId === "number") skinId = rec.skinId;
-    if (rec.adminUnlocked) adminUnlocked = true;
-    if (rec.best && rec.best > best) best = rec.best;
+    adminUnlocked = !!rec.adminUnlocked; // chỉ acc harasradmin là Admin
+    if (!adminUnlocked) adminPtsGranted = false;
+    best = Math.max(0, Math.floor(+rec.best || 0)); // Best riêng của tài khoản này
     applyProgression(lastName);
     localLoggedIn = true;
     persistLocal();
@@ -814,6 +824,8 @@ const SEASON_DATA = {
     showAuthErr("");
     updateAuthUI();
     updateProgressUI();
+    const bm = document.getElementById("best-m");
+    if (bm) bm.textContent = formatNum(best);
     if (audio.point) audio.point();
   }
   function registerLocal() {
@@ -823,8 +835,8 @@ const SEASON_DATA = {
     const pass = (pEl && pEl.value || "");
     if (!user) { showAuthErr("Nhập tên tài khoản"); return; }
     const norm = normalizeName(user);
-    if (norm === ADMIN_ACC || isAdminName(user)) {
-      showAuthErr("Tên admin dành riêng — đăng nhập không cần MK");
+    if (isReservedName(user)) {
+      showAuthErr("Tên này là tài khoản Admin — hãy bấm Đăng nhập");
       return;
     }
     if (pass.length < 3) { showAuthErr("Mật khẩu tối thiểu 3 ký tự"); return; }
@@ -848,6 +860,7 @@ const SEASON_DATA = {
     totalPts = 0;
     ownedSkins = [0];
     skinId = 0;
+    best = 0; // acc mới: Best riêng bắt đầu từ 0
     adminUnlocked = false;
     applyProgression(lastName);
     localLoggedIn = true;
@@ -855,12 +868,14 @@ const SEASON_DATA = {
     showAuthErr("");
     updateAuthUI();
     updateProgressUI();
+    const bmReg = document.getElementById("best-m");
+    if (bmReg) bmReg.textContent = formatNum(best);
     if (audio.point) audio.point();
   }
   function saveAccountProgress() {
     if (!localLoggedIn || !lastName) return;
     const norm = normalizeName(lastName);
-    if (norm === ADMIN_ACC || isAdminName(lastName)) return;
+    if (isAdmin) return; // không ghi đè record Admin
     const map = loadAccounts();
     if (!map[norm]) return;
     map[norm] = {
@@ -880,6 +895,9 @@ const SEASON_DATA = {
     saveAccountProgress();
     localLoggedIn = false;
     authUser = null;
+    adminUnlocked = false; // mất quyền Admin khi thoát
+    adminPtsGranted = false;
+    applyProgression(lastName);
     // keep guest progress but mark logged out
     showAuthErr("");
     updateAuthUI();
@@ -937,13 +955,13 @@ const SEASON_DATA = {
             uid: typeof e.uid === "string" ? e.uid : "",
           };
         }).filter((e) => e.score > 0);
-        // nhớ key của mình
+        // nhớ key của mình + Best = của chính mình (không lấy top BXH)
         if (playerId) {
           const mine = list.find(e => e.uid === playerId);
           if (mine && mine.id) myRemoteKey = mine.id;
+          if (mine && mine.score > best) best = mine.score;
         }
         board = dedupeBoardByUid(list).slice(0, 10);
-        if (board.length && board[0].score > best) best = board[0].score;
         persistLocal();
         refreshLB();
         const bm = document.getElementById("best-m");
@@ -964,6 +982,65 @@ const SEASON_DATA = {
     }
   }
 
+  // ===== RESET BXH 1 LẦN: hạ 3 slot điểm cao nhất về 0 đ =====
+  const LB_RESET_TAG = "lb_reset_2026-08-29_v2"; // đổi giá trị này để reset lần khác
+  function runBoardResetOnce() {
+    try {
+      if (localStorage.getItem("tungtung_lb_reset") === LB_RESET_TAG) return;
+      localStorage.setItem("tungtung_lb_reset", LB_RESET_TAG);
+      // local: top 3 hiện tại về 0
+      const keyOf = (e) => e.uid || ("name:" + (e.name || ""));
+      const sorted = board.slice().sort((a, b) => b.score - a.score || (a.at || 0) - (b.at || 0));
+      const zeroKeys = new Set(sorted.slice(0, 3).filter(e => e.score > 0).map(keyOf));
+      if (zeroKeys.size) {
+        board = board.map(e => zeroKeys.has(keyOf(e)) ? { ...e, score: 0 } : e);
+      }
+      // Best = của chính mình: lấy từ entry của mình trên board, không phải top BXH
+      const myEntry = board.find(e => e.uid === playerId);
+      best = myEntry ? Math.max(0, Math.floor(+myEntry.score || 0)) : 0;
+      // dọn Best lưu trong từng tài khoản: best = entry của chính acc đó
+      try {
+        const accs = loadAccounts();
+        let accChanged = false;
+        for (const k of Object.keys(accs)) {
+          const rec = accs[k];
+          if (!rec || !rec.playerId) continue;
+          const own = board.find(e => e.uid === rec.playerId);
+          if (own) {
+            const nb = Math.max(0, Math.floor(+own.score || 0));
+            if (Math.floor(+rec.best || 0) !== nb) { rec.best = nb; accChanged = true; }
+          }
+        }
+        if (accChanged) saveAccounts(accs);
+      } catch (err) {}
+      persistLocal();
+      refreshLB();
+      // remote: top 3 về 0 (chạy nếu DB cho phép ghi)
+      if (remoteReady && remote) {
+        try {
+          remote.child("board").once("value").then((snap) => {
+            const val = snap.val() || {};
+            const arr = Object.keys(val)
+              .map(k => ({ id: k, score: Math.floor(+((val[k] || {}).score) || 0) }))
+              .sort((a, b) => b.score - a.score);
+            const updates = {};
+            arr.slice(0, 3).forEach(e => { if (e.score > 0) updates[e.id + "/score"] = 0; });
+            if (Object.keys(updates).length) remote.child("board").update(updates);
+            // Best riêng của mình từ cloud (nếu có)
+            const myRemote = Object.keys(val).map(k => val[k] || {}).find(e => e.uid === playerId);
+            if (myRemote) {
+              const ms = Math.floor(+myRemote.score || 0);
+              if (ms > best) best = ms;
+              persistLocal();
+              const bm = document.getElementById("best-m");
+              if (bm) bm.textContent = String(best);
+            }
+          }).catch(() => {});
+        } catch (err) {}
+      }
+    } catch (err) {}
+  }
+
   function loadStore() {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
@@ -976,8 +1053,8 @@ const SEASON_DATA = {
       if (ownedSkins.indexOf(0) < 0) ownedSkins.push(0);
       playerId = typeof raw.playerId === "string" && raw.playerId ? raw.playerId : genId();
       myRemoteKey = typeof raw.myRemoteKey === "string" ? raw.myRemoteKey : "";
-      adminUnlocked = !!raw.adminUnlocked;
-      adminPtsGranted = !!raw.adminPtsGranted;
+      adminUnlocked = normalizeName(lastName) === ADMIN_ACC; // chỉ acc Admin giữ quyền qua reload
+      adminPtsGranted = adminUnlocked ? !!raw.adminPtsGranted : false;
       renameTokens = raw.renameTokens === null || raw.renameTokens === Infinity || raw.renameTokens === "∞" ? Infinity : Math.max(0, Math.floor(+raw.renameTokens || 3));
       if (adminUnlocked) renameTokens = Infinity;
       board = Array.isArray(raw.board) ? raw.board : [];
@@ -991,6 +1068,9 @@ const SEASON_DATA = {
           id: e.id || ""
         }));
       board = dedupeBoardByUid(board).slice(0, 10);
+      // Best = của chính người chơi này (entry theo uid của mình), không phải top BXH
+      const myBootEntry = board.find(e => e.uid === playerId);
+      if (myBootEntry) best = Math.max(0, Math.floor(+myBootEntry.score || 0));
       applyProgression(lastName);
       return raw;
     } catch {
@@ -2225,6 +2305,7 @@ const SEASON_DATA = {
   showUI();
   $("best-m").textContent = formatNum(best);
   initRemote();
+  runBoardResetOnce();
   refreshLB();
   updateAuthUI();
   const btnLoginL = document.getElementById("btn-login-local");
